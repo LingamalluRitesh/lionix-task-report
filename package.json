@@ -1,0 +1,11 @@
+{
+  "name": "team-task-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install-all": "npm --prefix server install && npm --prefix client install",
+    "start-server": "npm --prefix server start",
+    "start-client": "npm --prefix client run dev",
+    "build-client": "npm --prefix client run build"
+  }
+}
