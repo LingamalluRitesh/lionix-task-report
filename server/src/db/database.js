@@ -22,7 +22,8 @@ class Database {
       if (fs.existsSync(DB_FILE)) {
         const raw = fs.readFileSync(DB_FILE, 'utf-8');
         this.data = JSON.parse(raw);
-        if (!this.data.admin) {
+        // Ensure admin configuration is up to date
+        if (!this.data.admin || this.data.admin.email !== 'uthej.lionix.com') {
           this.initAdmin();
           this.save();
         }
@@ -48,12 +49,12 @@ class Database {
   initAdmin() {
     this.data.admin = {
       id: 'admin_root',
-      name: 'System Administrator',
-      email: 'admin@taskpulse.com',
-      password: 'admin123',
+      name: 'Uthej (Admin)',
+      email: 'uthej.lionix.com',
+      password: 'Uthej@2003',
       role: 'Administrator',
       department: 'IT',
-      avatarColor: '#4f46e5',
+      avatarColor: '#f59e0b',
       createdAt: new Date().toISOString()
     };
   }
@@ -70,40 +71,48 @@ class Database {
     this.save();
   }
 
-  // --- Auth operations ---
-  validateAdmin(email, password) {
+  // --- Unified Login Validation (Admin & Employees) ---
+  validateLogin(identifier, password) {
     if (!this.data.admin) this.initAdmin();
-    const cleanEmail = (email || '').trim().toLowerCase();
+    
+    const cleanId = (identifier || '').trim().toLowerCase();
     const cleanPass = (password || '').trim();
-    if (this.data.admin.email.toLowerCase() === cleanEmail && this.data.admin.password === cleanPass) {
+
+    // Check Admin (supports uthej.lionix.com and uthej@lionix.com)
+    const adminEmail = (this.data.admin.email || '').toLowerCase();
+    if (
+      (cleanId === adminEmail || cleanId === 'uthej@lionix.com' || cleanId === 'uthej') &&
+      this.data.admin.password === cleanPass
+    ) {
       return {
         id: this.data.admin.id,
         name: this.data.admin.name,
         email: this.data.admin.email,
         role: this.data.admin.role,
         department: this.data.admin.department || 'IT',
+        avatarColor: this.data.admin.avatarColor || '#f59e0b',
         isAdmin: true
       };
     }
-    return null;
-  }
 
-  validateMember(email, password) {
-    const cleanEmail = (email || '').trim().toLowerCase();
-    const cleanPass = (password || '').trim();
-    const member = this.data.members.find(m => m.email.toLowerCase() === cleanEmail && m.active);
-    if (!member) return null;
-    if (member.password && member.password !== cleanPass) return null;
-    
-    return {
-      id: member.id,
-      name: member.name,
-      email: member.email,
-      role: member.role,
-      department: member.department || 'IT',
-      avatarColor: member.avatarColor,
-      isAdmin: false
-    };
+    // Check Employees
+    const member = this.data.members.find(
+      m => (m.email.toLowerCase() === cleanId || m.name.toLowerCase() === cleanId) && m.active
+    );
+
+    if (member && member.password === cleanPass) {
+      return {
+        id: member.id,
+        name: member.name,
+        email: member.email,
+        role: member.role,
+        department: member.department || 'IT',
+        avatarColor: member.avatarColor || '#0284c7',
+        isAdmin: false
+      };
+    }
+
+    return null;
   }
 
   // --- Members CRUD ---
@@ -129,7 +138,7 @@ class Database {
     
     const existing = this.data.members.find(m => m.email.toLowerCase() === cleanEmail);
     if (existing) {
-      throw new Error('An account with this email address already exists.');
+      throw new Error('An account with this email already exists.');
     }
 
     const newMember = {
@@ -243,8 +252,8 @@ class Database {
       const project = this.getProjectById(log.projectId);
       return {
         ...log,
-        memberName: member ? member.name : 'Unknown Member',
-        memberRole: member ? member.role : '',
+        memberName: member ? member.name : (log.memberId === 'admin_root' ? 'Uthej (Admin)' : 'Unknown Member'),
+        memberRole: member ? member.role : 'Team Member',
         memberDepartment: member ? (member.department || 'IT') : 'IT',
         memberColor: member ? member.avatarColor : '#64748b',
         projectName: project ? project.name : (log.projectName || 'Unassigned'),

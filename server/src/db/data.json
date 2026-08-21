@@ -1,12 +1,13 @@
 {
   "admin": {
     "id": "admin_root",
-    "name": "System Administrator",
-    "email": "admin@taskpulse.com",
-    "password": "admin123",
+    "name": "Uthej (Admin)",
+    "email": "uthej.lionix.com",
+    "password": "Uthej@2003",
     "role": "Administrator",
-    "avatarColor": "#4f46e5",
-    "createdAt": "2026-08-21T07:15:00.000Z"
+    "department": "IT",
+    "avatarColor": "#f59e0b",
+    "createdAt": "2026-08-21T09:03:45.312Z"
   },
   "members": [
     {

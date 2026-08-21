@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Navbar } from './components/Navbar.jsx';
-import { EmployeeAuth } from './components/Auth/EmployeeAuth.jsx';
-import { AdminAuth } from './components/Auth/AdminAuth.jsx';
+import { UnifiedAuth } from './components/Auth/EmployeeAuth.jsx';
 import { MemberSelector } from './components/MemberPortal/MemberSelector.jsx';
 import { HourlyTaskGrid } from './components/MemberPortal/HourlyTaskGrid.jsx';
 import { DailySummaryCard } from './components/MemberPortal/DailySummaryCard.jsx';
@@ -19,56 +18,23 @@ import {
   BarChart3, 
   Users, 
   FolderKanban, 
-  ShieldCheck,
   Flame
 } from 'lucide-react';
 
 const MainApp = () => {
   const { addToast } = useToast();
 
-  // URL Path Detection (Admin mode is accessible ONLY via /admin or #/admin or ?portal=admin)
-  const [isAdminMode, setIsAdminMode] = useState(() => {
-    const path = window.location.pathname.toLowerCase();
-    const hash = window.location.hash.toLowerCase();
-    const search = window.location.search.toLowerCase();
-    return path.includes('/admin') || hash.includes('admin') || search.includes('portal=admin');
-  });
-
-  // Listen for browser navigation changes
-  useEffect(() => {
-    const checkRoute = () => {
-      const path = window.location.pathname.toLowerCase();
-      const hash = window.location.hash.toLowerCase();
-      const search = window.location.search.toLowerCase();
-      setIsAdminMode(path.includes('/admin') || hash.includes('admin') || search.includes('portal=admin'));
-    };
-
-    window.addEventListener('popstate', checkRoute);
-    window.addEventListener('hashchange', checkRoute);
-    return () => {
-      window.removeEventListener('popstate', checkRoute);
-      window.removeEventListener('hashchange', checkRoute);
-    };
-  }, []);
-
-  // Auth Sessions (Stored in localStorage)
-  const [employeeUser, setEmployeeUser] = useState(() => {
+  // Unified Authenticated User (Saved in localStorage)
+  const [currentUser, setCurrentUser] = useState(() => {
     try {
-      const saved = localStorage.getItem('taskpulse_employee');
+      const saved = localStorage.getItem('lionix_user');
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
     }
   });
 
-  const [adminUser, setAdminUser] = useState(() => {
-    try {
-      const saved = localStorage.getItem('taskpulse_admin');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
+  const isAdmin = currentUser?.isAdmin === true;
 
   // Admin Active Tab
   const [currentAdminTab, setCurrentAdminTab] = useState('overview'); // 'overview' | 'hourly' | 'daily' | 'members' | 'projects'
@@ -110,21 +76,21 @@ const MainApp = () => {
 
   // Fetch Employee Logs
   const fetchEmployeeLogs = useCallback(async () => {
-    if (!employeeUser?.id || !selectedDate) return;
+    if (!currentUser?.id || isAdmin || !selectedDate) return;
     try {
       const logs = await api.getHourlyLogs({
-        memberId: employeeUser.id,
+        memberId: currentUser.id,
         date: selectedDate
       });
       setEmployeeLogs(logs);
     } catch (err) {
       console.error('Error fetching employee logs:', err);
     }
-  }, [employeeUser?.id, selectedDate]);
+  }, [currentUser?.id, isAdmin, selectedDate]);
 
   // Fetch Admin Data
   const fetchAdminData = useCallback(async () => {
-    if (!isAdminMode || !adminUser || !selectedDate) return;
+    if (!isAdmin || !selectedDate) return;
     try {
       const [overviewData, matrixData, logsData, summaryData] = await Promise.all([
         api.getAdminOverview({ date: selectedDate }),
@@ -139,7 +105,7 @@ const MainApp = () => {
     } catch (err) {
       console.error('Error fetching admin data:', err);
     }
-  }, [isAdminMode, adminUser, selectedDate]);
+  }, [isAdmin, selectedDate]);
 
   // Initial Load
   useEffect(() => {
@@ -153,44 +119,35 @@ const MainApp = () => {
 
   // Sync on state updates
   useEffect(() => {
-    if (employeeUser?.id) {
+    if (currentUser && !isAdmin) {
       fetchEmployeeLogs();
     }
-  }, [employeeUser?.id, selectedDate, fetchEmployeeLogs]);
+  }, [currentUser, isAdmin, selectedDate, fetchEmployeeLogs]);
 
   useEffect(() => {
-    if (isAdminMode && adminUser) {
+    if (currentUser && isAdmin) {
       fetchAdminData();
     }
-  }, [isAdminMode, adminUser, selectedDate, fetchAdminData]);
+  }, [currentUser, isAdmin, selectedDate, fetchAdminData]);
 
-  // Employee Auth Handlers
-  const handleEmployeeLoginSuccess = (user) => {
-    setEmployeeUser(user);
-    localStorage.setItem('taskpulse_employee', JSON.stringify(user));
-    addToast(`Welcome to LionIX, ${user.name}!`, 'success');
+  // Unified Login Handler
+  const handleLoginSuccess = (user) => {
+    setCurrentUser(user);
+    localStorage.setItem('lionix_user', JSON.stringify(user));
+    if (user.isAdmin) {
+      addToast(`Welcome Administrator, ${user.name}! Redirecting to Admin Portal...`, 'success');
+    } else {
+      addToast(`Welcome to LionIX, ${user.name}!`, 'success');
+    }
   };
 
-  const handleEmployeeLogout = () => {
-    setEmployeeUser(null);
-    localStorage.removeItem('taskpulse_employee');
-    addToast('Signed out of LionIX employee portal', 'info');
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('lionix_user');
+    addToast('Signed out of LionIX', 'info');
   };
 
-  // Admin Auth Handlers
-  const handleAdminLoginSuccess = (user) => {
-    setAdminUser(user);
-    localStorage.setItem('taskpulse_admin', JSON.stringify(user));
-    addToast('Welcome to the LionIX Admin Portal', 'success');
-  };
-
-  const handleAdminLogout = () => {
-    setAdminUser(null);
-    localStorage.removeItem('taskpulse_admin');
-    window.location.href = '/';
-  };
-
-  // Task Logging Handlers
+  // Task Logging Handlers (Employee)
   const handleSaveHourlyLog = async (logData) => {
     try {
       await api.saveHourlyLog(logData);
@@ -309,9 +266,9 @@ const MainApp = () => {
   const handleResetAllData = async () => {
     try {
       await api.resetData();
-      setEmployeeUser(null);
-      localStorage.removeItem('taskpulse_employee');
-      addToast('System reset: All employees, projects, and logs cleared.', 'info');
+      setCurrentUser(null);
+      localStorage.removeItem('lionix_user');
+      addToast('System reset: All accounts, projects, and logs cleared.', 'info');
       await fetchMasterData();
       await fetchAdminData();
     } catch (err) {
@@ -331,12 +288,12 @@ const MainApp = () => {
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-amber-500 selection:text-white">
       {/* Top Navbar */}
       <Navbar
-        isAdminMode={isAdminMode}
-        adminUser={adminUser}
-        employeeUser={employeeUser}
+        isAdminMode={isAdmin}
+        adminUser={isAdmin ? currentUser : null}
+        employeeUser={!isAdmin ? currentUser : null}
         currentAdminTab={currentAdminTab}
         onAdminTabChange={setCurrentAdminTab}
-        onLogout={isAdminMode ? handleAdminLogout : handleEmployeeLogout}
+        onLogout={handleLogout}
       />
 
       {/* Main Container */}
@@ -344,179 +301,163 @@ const MainApp = () => {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24 space-y-3">
             <div className="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm font-bold text-slate-500">Loading LionIX Task Workspace...</p>
+            <p className="text-sm font-bold text-slate-500">Loading LionIX Workspace...</p>
+          </div>
+        ) : !currentUser ? (
+          /* UNIFIED LOGIN / REGISTRATION PAGE */
+          <UnifiedAuth onLoginSuccess={handleLoginSuccess} />
+        ) : isAdmin ? (
+          /* ADMIN PORTAL */
+          <div className="space-y-6">
+            {/* Admin Tab Navigation on Mobile / Tablet */}
+            <div className="flex lg:hidden items-center gap-1.5 p-1 bg-white border border-slate-200 rounded-2xl overflow-x-auto shadow-xs">
+              <button
+                onClick={() => setCurrentAdminTab('overview')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold shrink-0 transition-all ${
+                  currentAdminTab === 'overview'
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Activity className="w-4 h-4" />
+                <span>Overview</span>
+              </button>
+              <button
+                onClick={() => setCurrentAdminTab('hourly')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold shrink-0 transition-all ${
+                  currentAdminTab === 'hourly'
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Clock className="w-4 h-4" />
+                <span>Hourly Report</span>
+              </button>
+              <button
+                onClick={() => setCurrentAdminTab('daily')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold shrink-0 transition-all ${
+                  currentAdminTab === 'daily'
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <BarChart3 className="w-4 h-4" />
+                <span>Daily Report</span>
+              </button>
+              <button
+                onClick={() => setCurrentAdminTab('members')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold shrink-0 transition-all ${
+                  currentAdminTab === 'members'
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                <span>Team</span>
+              </button>
+              <button
+                onClick={() => setCurrentAdminTab('projects')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold shrink-0 transition-all ${
+                  currentAdminTab === 'projects'
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <FolderKanban className="w-4 h-4" />
+                <span>Projects</span>
+              </button>
+            </div>
+
+            {/* Admin Tab Content */}
+            {currentAdminTab === 'overview' && (
+              <AdminDashboard
+                overview={adminOverview}
+                selectedDate={selectedDate}
+                onDateChange={setSelectedDate}
+                onNavigateTab={setCurrentAdminTab}
+              />
+            )}
+
+            {currentAdminTab === 'hourly' && (
+              <HourlyWorkReport
+                matrixData={adminMatrix}
+                hourlyLogs={adminHourlyLogs}
+                members={members}
+                projects={projects}
+                selectedDate={selectedDate}
+                onDateChange={setSelectedDate}
+                onEditLog={handleOpenEditLog}
+                onDeleteLog={handleDeleteHourlyLog}
+                onAddNewLog={handleAddNewLogForMember}
+                onRefresh={fetchAdminData}
+                onExportCsv={handleExportCsv}
+              />
+            )}
+
+            {currentAdminTab === 'daily' && (
+              <DailyWorkReport
+                summaries={adminDailySummaries}
+                members={members}
+                selectedDate={selectedDate}
+                onDateChange={setSelectedDate}
+                onRefresh={fetchAdminData}
+                onExportCsv={handleExportCsv}
+              />
+            )}
+
+            {currentAdminTab === 'members' && (
+              <MemberManager
+                members={members}
+                onCreateMember={handleCreateMember}
+                onUpdateMember={handleUpdateMember}
+                onDeleteMember={handleDeleteMember}
+                onResetAllData={handleResetAllData}
+              />
+            )}
+
+            {currentAdminTab === 'projects' && (
+              <ProjectManager
+                projects={projects}
+                onCreateProject={handleCreateProject}
+                onUpdateProject={handleUpdateProject}
+                onDeleteProject={handleDeleteProject}
+              />
+            )}
           </div>
         ) : (
-          <>
-            {/* SCENARIO 1: ADMIN MODE (URL /admin) */}
-            {isAdminMode ? (
-              !adminUser ? (
-                // 1A. Admin Login Screen
-                <AdminAuth onAdminLoginSuccess={handleAdminLoginSuccess} />
-              ) : (
-                // 1B. Full Admin Portal
-                <div className="space-y-6">
-                  {/* Admin Tab Navigation on Mobile / Tablet */}
-                  <div className="flex lg:hidden items-center gap-1.5 p-1 bg-white border border-slate-200 rounded-2xl overflow-x-auto shadow-xs">
-                    <button
-                      onClick={() => setCurrentAdminTab('overview')}
-                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold shrink-0 transition-all ${
-                        currentAdminTab === 'overview'
-                          ? 'bg-indigo-600 text-white shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      <Activity className="w-4 h-4" />
-                      <span>Overview</span>
-                    </button>
-                    <button
-                      onClick={() => setCurrentAdminTab('hourly')}
-                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold shrink-0 transition-all ${
-                        currentAdminTab === 'hourly'
-                          ? 'bg-indigo-600 text-white shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      <Clock className="w-4 h-4" />
-                      <span>Hourly Report</span>
-                    </button>
-                    <button
-                      onClick={() => setCurrentAdminTab('daily')}
-                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold shrink-0 transition-all ${
-                        currentAdminTab === 'daily'
-                          ? 'bg-indigo-600 text-white shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      <BarChart3 className="w-4 h-4" />
-                      <span>Daily Report</span>
-                    </button>
-                    <button
-                      onClick={() => setCurrentAdminTab('members')}
-                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold shrink-0 transition-all ${
-                        currentAdminTab === 'members'
-                          ? 'bg-indigo-600 text-white shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      <Users className="w-4 h-4" />
-                      <span>Team</span>
-                    </button>
-                    <button
-                      onClick={() => setCurrentAdminTab('projects')}
-                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold shrink-0 transition-all ${
-                        currentAdminTab === 'projects'
-                          ? 'bg-indigo-600 text-white shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      <FolderKanban className="w-4 h-4" />
-                      <span>Projects</span>
-                    </button>
-                  </div>
+          /* EMPLOYEE TASK TRACKER PORTAL */
+          <div className="space-y-6">
+            {/* Top Member Header & Date Selector */}
+            <MemberSelector
+              employeeUser={currentUser}
+              selectedDate={selectedDate}
+              onDateChange={setSelectedDate}
+            />
 
-                  {/* Admin Tab Content */}
-                  {currentAdminTab === 'overview' && (
-                    <AdminDashboard
-                      overview={adminOverview}
-                      selectedDate={selectedDate}
-                      onDateChange={setSelectedDate}
-                      onNavigateTab={setCurrentAdminTab}
-                    />
-                  )}
-
-                  {currentAdminTab === 'hourly' && (
-                    <HourlyWorkReport
-                      matrixData={adminMatrix}
-                      hourlyLogs={adminHourlyLogs}
-                      members={members}
-                      projects={projects}
-                      selectedDate={selectedDate}
-                      onDateChange={setSelectedDate}
-                      onEditLog={handleOpenEditLog}
-                      onDeleteLog={handleDeleteHourlyLog}
-                      onAddNewLog={handleAddNewLogForMember}
-                      onRefresh={fetchAdminData}
-                      onExportCsv={handleExportCsv}
-                    />
-                  )}
-
-                  {currentAdminTab === 'daily' && (
-                    <DailyWorkReport
-                      summaries={adminDailySummaries}
-                      members={members}
-                      selectedDate={selectedDate}
-                      onDateChange={setSelectedDate}
-                      onRefresh={fetchAdminData}
-                      onExportCsv={handleExportCsv}
-                    />
-                  )}
-
-                  {currentAdminTab === 'members' && (
-                    <MemberManager
-                      members={members}
-                      onCreateMember={handleCreateMember}
-                      onUpdateMember={handleUpdateMember}
-                      onDeleteMember={handleDeleteMember}
-                      onResetAllData={handleResetAllData}
-                    />
-                  )}
-
-                  {currentAdminTab === 'projects' && (
-                    <ProjectManager
-                      projects={projects}
-                      onCreateProject={handleCreateProject}
-                      onUpdateProject={handleUpdateProject}
-                      onDeleteProject={handleDeleteProject}
-                    />
-                  )}
-                </div>
-              )
-            ) : (
-              /* SCENARIO 2: EMPLOYEE PORTAL (Default /) */
-              !employeeUser ? (
-                // 2A. Employee Login & Signup Screen
-                <EmployeeAuth
-                  onLoginSuccess={handleEmployeeLoginSuccess}
+            {/* 2-Column Work Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* Left: Hourly Task Grid */}
+              <div className="lg:col-span-8">
+                <HourlyTaskGrid
+                  memberId={currentUser.id}
+                  selectedDate={selectedDate}
                   projects={projects}
+                  logs={employeeLogs}
+                  onSaveLog={handleSaveHourlyLog}
+                  onDeleteLog={handleDeleteHourlyLog}
                 />
-              ) : (
-                // 2B. Employee Task Logger Workspace
-                <div className="space-y-6">
-                  {/* Top Member Header & Date Selector */}
-                  <MemberSelector
-                    employeeUser={employeeUser}
-                    selectedDate={selectedDate}
-                    onDateChange={setSelectedDate}
-                  />
+              </div>
 
-                  {/* 2-Column Work Layout */}
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                    {/* Left: Hourly Task Grid */}
-                    <div className="lg:col-span-8">
-                      <HourlyTaskGrid
-                        memberId={employeeUser.id}
-                        selectedDate={selectedDate}
-                        projects={projects}
-                        logs={employeeLogs}
-                        onSaveLog={handleSaveHourlyLog}
-                        onDeleteLog={handleDeleteHourlyLog}
-                      />
-                    </div>
-
-                    {/* Right: Daily Summary & Velocity Stats */}
-                    <div className="lg:col-span-4 sticky top-24">
-                      <DailySummaryCard
-                        member={employeeUser}
-                        selectedDate={selectedDate}
-                        logs={employeeLogs}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )
-            )}
-          </>
+              {/* Right: Daily Summary & Velocity Stats */}
+              <div className="lg:col-span-4 sticky top-24">
+                <DailySummaryCard
+                  member={currentUser}
+                  selectedDate={selectedDate}
+                  logs={employeeLogs}
+                />
+              </div>
+            </div>
+          </div>
         )}
       </main>
 
@@ -544,7 +485,7 @@ const MainApp = () => {
             <span>LionIX Task Report — 9:00 AM to 6:00 PM Enterprise Work Tracking</span>
           </p>
           <p className="text-[11px] text-slate-400 font-medium">
-            Protected Employee Workspace • URL-Restricted Admin Access (/admin)
+            Unified Portal • Role-Based Access Routing
           </p>
         </div>
       </footer>

@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { Mail, Lock, User, ArrowRight, AlertCircle, Flame, Building2 } from 'lucide-react';
 
-export const EmployeeAuth = ({ onLoginSuccess, projects = [] }) => {
+export const UnifiedAuth = ({ onLoginSuccess }) => {
   const [isRegister, setIsRegister] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
-    email: '',
+    identifier: '',
     password: '',
     role: '',
     department: 'IT'
@@ -25,7 +25,7 @@ export const EmployeeAuth = ({ onLoginSuccess, projects = [] }) => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: formData.name.trim(),
-            email: formData.email.trim(),
+            email: formData.identifier.trim(),
             password: formData.password,
             role: formData.role.trim() || 'Software Engineer',
             department: formData.department || 'IT'
@@ -33,7 +33,7 @@ export const EmployeeAuth = ({ onLoginSuccess, projects = [] }) => {
         });
         const data = await res.json();
         if (!data.success) {
-          throw new Error(data.error || 'Failed to create employee account');
+          throw new Error(data.error || 'Failed to create account');
         }
         onLoginSuccess(data.user);
       } else {
@@ -41,13 +41,13 @@ export const EmployeeAuth = ({ onLoginSuccess, projects = [] }) => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            email: formData.email.trim(),
+            identifier: formData.identifier.trim(),
             password: formData.password
           })
         });
         const data = await res.json();
         if (!data.success) {
-          throw new Error(data.error || 'Invalid email or password');
+          throw new Error(data.error || 'Invalid username/email or password');
         }
         onLoginSuccess(data.user);
       }
@@ -73,7 +73,7 @@ export const EmployeeAuth = ({ onLoginSuccess, projects = [] }) => {
             <span className="text-xl font-bold text-amber-600">Task Report</span>
           </div>
           <p className="text-xs text-slate-500 mt-1.5 font-medium">
-            Sign in with your IT employee credentials to log 9 AM – 6 PM work
+            Sign in to access your portal (Admin or Employee)
           </p>
         </div>
 
@@ -169,16 +169,16 @@ export const EmployeeAuth = ({ onLoginSuccess, projects = [] }) => {
 
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Work Email Address
+                {isRegister ? 'Work Email Address' : 'Email or Username'}
               </label>
               <div className="relative">
                 <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
-                  type="email"
+                  type="text"
                   required
-                  placeholder="name@company.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder={isRegister ? "name@company.com" : "e.g. uthej.lionix.com or employee@company.com"}
+                  value={formData.identifier}
+                  onChange={(e) => setFormData({ ...formData, identifier: e.target.value })}
                   className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none transition-all font-medium"
                 />
               </div>
@@ -207,10 +207,10 @@ export const EmployeeAuth = ({ onLoginSuccess, projects = [] }) => {
               className="w-full mt-2 py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-sm font-extrabold shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2 transition-all"
             >
               {loading ? (
-                <span>Processing...</span>
+                <span>Verifying...</span>
               ) : (
                 <>
-                  <span>{isRegister ? 'Create IT Employee Account' : 'Sign In to LionIX'}</span>
+                  <span>{isRegister ? 'Create IT Account' : 'Sign In to LionIX'}</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
@@ -221,3 +221,4 @@ export const EmployeeAuth = ({ onLoginSuccess, projects = [] }) => {
     </div>
   );
 };
+export { UnifiedAuth as EmployeeAuth };

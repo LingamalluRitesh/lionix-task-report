@@ -3,37 +3,45 @@ import { db } from '../db/database.js';
 
 const router = express.Router();
 
-// Employee Login
+// Unified Login Endpoint (Handles both Admin & Employee accounts)
 router.post('/login', (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ success: false, error: 'Email and password are required' });
+    const { email, identifier, password } = req.body;
+    const loginIdentifier = (email || identifier || '').trim();
+
+    if (!loginIdentifier || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please enter your username/email and password'
+      });
     }
 
-    const member = db.validateMember(email, password);
-    if (!member) {
-      return res.status(401).json({ success: false, error: 'Invalid email or password' });
+    const user = db.validateLogin(loginIdentifier, password);
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid credentials. Please verify username/email and password.'
+      });
     }
 
     res.json({
       success: true,
-      message: 'Login successful',
-      user: member
+      user
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Employee Registration / Sign Up
+// Employee Registration Endpoint
 router.post('/register', (req, res) => {
   try {
-    const { name, email, password, role, department, avatarColor } = req.body;
+    const { name, email, password, role, department } = req.body;
+
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
-        error: 'Name, email, and password are required to register.'
+        error: 'Name, email, and password are required'
       });
     }
 
@@ -41,14 +49,12 @@ router.post('/register', (req, res) => {
       name,
       email,
       password,
-      role: role || 'Team Member',
-      department: department || 'Engineering',
-      avatarColor: avatarColor || '#0284c7'
+      role: role || 'Software Engineer',
+      department: department || 'IT'
     });
 
     res.status(201).json({
       success: true,
-      message: 'Account created successfully',
       user: {
         ...newMember,
         isAdmin: false
@@ -59,34 +65,11 @@ router.post('/register', (req, res) => {
   }
 });
 
-// Admin Login
-router.post('/admin-login', (req, res) => {
-  try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ success: false, error: 'Email and password are required' });
-    }
-
-    const admin = db.validateAdmin(email, password);
-    if (!admin) {
-      return res.status(401).json({ success: false, error: 'Invalid Admin credentials' });
-    }
-
-    res.json({
-      success: true,
-      message: 'Admin access granted',
-      user: admin
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Reset Data (Remove all users and logs, fresh start)
+// Reset data endpoint
 router.post('/reset', (req, res) => {
   try {
     db.resetData();
-    res.json({ success: true, message: 'All users and logs have been reset to clean state.' });
+    res.json({ success: true, message: 'All dummy users, projects, and logs cleared successfully.' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
