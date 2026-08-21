@@ -2,16 +2,16 @@ const API_BASE = '/api';
 
 export const api = {
   // Auth
-  async employeeLogin(email, password) {
+  async login(identifier, password) {
     const res = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ identifier, password })
     });
     return res.json();
   },
 
-  async employeeRegister(data) {
+  async register(data) {
     const res = await fetch(`${API_BASE}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -20,18 +20,25 @@ export const api = {
     return res.json();
   },
 
-  async adminLogin(email, password) {
-    const res = await fetch(`${API_BASE}/auth/admin-login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
+  async resetData() {
+    const res = await fetch(`${API_BASE}/auth/reset`, {
+      method: 'POST'
     });
     return res.json();
   },
 
-  async resetData() {
-    const res = await fetch(`${API_BASE}/auth/reset`, {
-      method: 'POST'
+  // Settings (Daily Task Goal)
+  async getSettings() {
+    const res = await fetch(`${API_BASE}/reports/settings`);
+    const json = await res.json();
+    return json.data || { dailyTaskGoal: 20 };
+  },
+
+  async updateSettings(settings) {
+    const res = await fetch(`${API_BASE}/reports/settings`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings)
     });
     return res.json();
   },
@@ -100,7 +107,7 @@ export const api = {
     return res.json();
   },
 
-  // Hourly Logs
+  // Reports
   async getHourlyLogs(params = {}) {
     const query = new URLSearchParams(params).toString();
     const res = await fetch(`${API_BASE}/reports/hourly?${query}`);
@@ -108,11 +115,17 @@ export const api = {
     return json.data || [];
   },
 
-  async saveHourlyLog(logData) {
+  async getMatrix(date) {
+    const res = await fetch(`${API_BASE}/reports/matrix?date=${date}`);
+    const json = await res.json();
+    return json || { allHours: [], matrix: [] };
+  },
+
+  async saveHourlyLog(log) {
     const res = await fetch(`${API_BASE}/reports/hourly`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(logData)
+      body: JSON.stringify(log)
     });
     return res.json();
   },
@@ -133,13 +146,6 @@ export const api = {
     return res.json();
   },
 
-  // Matrices and Summaries
-  async getMatrix(date) {
-    const res = await fetch(`${API_BASE}/reports/matrix?date=${encodeURIComponent(date)}`);
-    const json = await res.json();
-    return json;
-  },
-
   async getDailySummary(params = {}) {
     const query = new URLSearchParams(params).toString();
     const res = await fetch(`${API_BASE}/reports/daily-summary?${query}`);
@@ -154,8 +160,8 @@ export const api = {
     return json.data || {};
   },
 
-  getExportCsvUrl(params = {}) {
-    const query = new URLSearchParams(params).toString();
-    return `${API_BASE}/reports/export-csv?${query}`;
+  getExportCsvUrl({ type = 'hourly', date = '', startDate = '', endDate = '' }) {
+    const params = new URLSearchParams({ type, date, startDate, endDate });
+    return `${API_BASE}/reports/export-csv?${params.toString()}`;
   }
 };

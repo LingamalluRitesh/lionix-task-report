@@ -96,17 +96,6 @@ export const HourlyTaskGrid = ({
     });
   };
 
-  const handleTaskCountAdjust = (slot, delta) => {
-    const current = formState[slot]?.taskCount || 0;
-    const nextVal = Math.max(0, current + delta);
-    handleFieldChange(slot, 'taskCount', nextVal);
-  };
-
-  const handleQuickAddCount = (slot, addValue) => {
-    const current = formState[slot]?.taskCount || 0;
-    handleFieldChange(slot, 'taskCount', current + addValue);
-  };
-
   const handleSave = async (slot) => {
     const data = formState[slot];
     if (!data) return;
@@ -189,7 +178,7 @@ export const HourlyTaskGrid = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Fill in the assigned project, task count, and work details for each fixed hourly slot.
+                Select your assigned project, enter the number of tasks completed, and add work notes.
               </p>
             </div>
           </div>
@@ -220,7 +209,7 @@ export const HourlyTaskGrid = ({
           <div>
             <span className="font-bold block">No Projects Added Yet</span>
             <p className="mt-0.5 text-amber-700">
-              Projects are managed by the Administrator only. Please have your Admin create project names in the Admin Portal (<code className="font-mono font-bold text-amber-900">/admin</code>) before logging tasks.
+              Projects are managed by the Administrator only. Please have your Admin create project names in the Admin Portal before logging tasks.
             </p>
           </div>
         </div>
@@ -308,70 +297,25 @@ export const HourlyTaskGrid = ({
                   </div>
                 </div>
 
-                {/* 3. Number of Tasks Counter with Quick Steppers */}
+                {/* 3. Number of Tasks Normal Input (Direct Entry) */}
                 <div className="lg:col-span-2">
                   <label className="text-[11px] font-bold text-slate-500 block mb-1 lg:hidden">Tasks Completed</label>
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-2xl p-1 shadow-xs">
-                      <button
-                        type="button"
-                        onClick={() => handleTaskCountAdjust(slot, -1)}
-                        className="w-7 h-7 rounded-xl bg-white hover:bg-slate-100 text-slate-700 font-extrabold flex items-center justify-center text-sm transition-colors border border-slate-200 shadow-xs"
-                        disabled={entry.taskCount <= 0 || !hasProjects}
-                      >
-                        -
-                      </button>
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          min="0"
-                          disabled={!hasProjects}
-                          value={entry.taskCount}
-                          onChange={(e) => handleFieldChange(slot, 'taskCount', Math.max(0, parseInt(e.target.value) || 0))}
-                          className="w-10 text-center bg-transparent text-sm font-extrabold text-slate-900 focus:outline-none font-mono disabled:text-slate-400"
-                        />
-                        <span className="text-[10px] font-bold text-slate-400 uppercase pr-0.5">Tasks</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleTaskCountAdjust(slot, 1)}
-                        disabled={!hasProjects}
-                        className="w-7 h-7 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold flex items-center justify-center text-sm transition-colors shadow-xs disabled:bg-slate-300 disabled:cursor-not-allowed"
-                      >
-                        +
-                      </button>
-                    </div>
-
-                    {/* Quick increment chips */}
-                    <div className="flex items-center justify-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleQuickAddCount(slot, 1)}
-                        disabled={!hasProjects}
-                        className="px-1.5 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-[10px] font-bold text-slate-600 transition-colors"
-                        title="Add 1 task"
-                      >
-                        +1
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleQuickAddCount(slot, 2)}
-                        disabled={!hasProjects}
-                        className="px-1.5 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-[10px] font-bold text-slate-600 transition-colors"
-                        title="Add 2 tasks"
-                      >
-                        +2
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleQuickAddCount(slot, 5)}
-                        disabled={!hasProjects}
-                        className="px-1.5 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-[10px] font-bold text-slate-600 transition-colors"
-                        title="Add 5 tasks"
-                      >
-                        +5
-                      </button>
-                    </div>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      disabled={!hasProjects}
+                      placeholder="0"
+                      value={entry.taskCount === 0 ? '' : entry.taskCount}
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0);
+                        handleFieldChange(slot, 'taskCount', val);
+                      }}
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs font-extrabold rounded-2xl px-3.5 py-2.5 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none hover:border-slate-300 transition-all shadow-xs font-mono disabled:bg-slate-100 disabled:cursor-not-allowed"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 uppercase pointer-events-none">
+                      Tasks
+                    </span>
                   </div>
                 </div>
 

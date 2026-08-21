@@ -10,6 +10,9 @@ class Database {
   constructor() {
     this.data = {
       admin: null,
+      settings: {
+        dailyTaskGoal: 20
+      },
       members: [],
       projects: [],
       hourlyLogs: [],
@@ -22,6 +25,9 @@ class Database {
       if (fs.existsSync(DB_FILE)) {
         const raw = fs.readFileSync(DB_FILE, 'utf-8');
         this.data = JSON.parse(raw);
+        if (!this.data.settings) {
+          this.data.settings = { dailyTaskGoal: 20 };
+        }
         // Ensure admin configuration is up to date
         if (!this.data.admin || this.data.admin.email !== 'uthej.lionix.com') {
           this.initAdmin();
@@ -61,6 +67,7 @@ class Database {
 
   seedFreshData() {
     this.initAdmin();
+    this.data.settings = { dailyTaskGoal: 20 };
     this.data.projects = [];
     this.data.members = [];
     this.data.hourlyLogs = [];
@@ -71,6 +78,26 @@ class Database {
     this.save();
   }
 
+  // --- Settings (Daily Task Goal) ---
+  getSettings() {
+    if (!this.data.settings) {
+      this.data.settings = { dailyTaskGoal: 20 };
+    }
+    return this.data.settings;
+  }
+
+  updateSettings(updates) {
+    if (!this.data.settings) {
+      this.data.settings = { dailyTaskGoal: 20 };
+    }
+    if (updates.dailyTaskGoal !== undefined) {
+      const goal = Math.max(1, parseInt(updates.dailyTaskGoal, 10) || 20);
+      this.data.settings.dailyTaskGoal = goal;
+    }
+    this.save();
+    return this.data.settings;
+  }
+
   // --- Unified Login Validation (Admin & Employees) ---
   validateLogin(identifier, password) {
     if (!this.data.admin) this.initAdmin();
@@ -78,7 +105,7 @@ class Database {
     const cleanId = (identifier || '').trim().toLowerCase();
     const cleanPass = (password || '').trim();
 
-    // Check Admin (supports uthej.lionix.com and uthej@lionix.com)
+    // Check Admin (supports uthej.lionix.com, uthej@lionix.com, uthej)
     const adminEmail = (this.data.admin.email || '').toLowerCase();
     if (
       (cleanId === adminEmail || cleanId === 'uthej@lionix.com' || cleanId === 'uthej') &&
@@ -421,6 +448,7 @@ class Database {
     const logs = this.getHourlyLogs({ date: targetDate, startDate, endDate });
     const allMembers = this.data.members;
     const allProjects = this.getProjects();
+    const settings = this.getSettings();
 
     const totalTasksToday = logs.reduce((acc, l) => acc + (Number(l.taskCount) || 0), 0);
     const activeMemberIds = new Set(logs.map(l => l.memberId));
@@ -479,6 +507,7 @@ class Database {
 
     return {
       date: targetDate,
+      dailyTaskGoal: settings.dailyTaskGoal || 20,
       totalTasksToday,
       totalMembers: allMembers.length,
       activeMembersCount: activeMemberIds.size,

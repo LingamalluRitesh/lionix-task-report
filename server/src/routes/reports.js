@@ -16,6 +16,27 @@ const STANDARD_HOURS = [
   '05:00 PM - 06:00 PM'
 ];
 
+// GET settings (Daily Task Goal)
+router.get('/settings', (req, res) => {
+  try {
+    const settings = db.getSettings();
+    res.json({ success: true, data: settings });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PUT update settings (Daily Task Goal)
+router.put('/settings', (req, res) => {
+  try {
+    const { dailyTaskGoal } = req.body;
+    const settings = db.updateSettings({ dailyTaskGoal });
+    res.json({ success: true, data: settings });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // GET hourly logs with filters
 router.get('/hourly', (req, res) => {
   try {

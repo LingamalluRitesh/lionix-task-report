@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   CheckCircle2, 
   Users, 
@@ -8,9 +8,15 @@ import {
   Award, 
   ArrowRight, 
   Calendar, 
-  Activity
+  Activity,
+  Target,
+  Save,
+  Flame,
+  Check
 } from 'lucide-react';
 import { StatCard } from '../UI/StatCard.jsx';
+import { api } from '../../services/api.js';
+import { useToast } from '../UI/Toast.jsx';
 import { 
   BarChart, 
   Bar, 
@@ -27,7 +33,9 @@ export const AdminDashboard = ({
   onDateChange,
   onNavigateTab 
 }) => {
+  const { addToast } = useToast();
   const {
+    dailyTaskGoal: initialGoal = 20,
     totalTasksToday = 0,
     totalMembers = 0,
     activeMembersCount = 0,
@@ -39,23 +47,57 @@ export const AdminDashboard = ({
     memberLeaderboard = []
   } = overview;
 
+  const [goalInput, setGoalInput] = useState(initialGoal);
+  const [isSavingGoal, setIsSavingGoal] = useState(false);
+  const [goalSaved, setGoalSaved] = useState(false);
+
+  useEffect(() => {
+    if (initialGoal) {
+      setGoalInput(initialGoal);
+    }
+  }, [initialGoal]);
+
+  const handleSaveGoal = async (e) => {
+    e.preventDefault();
+    const num = Math.max(1, parseInt(goalInput, 10) || 20);
+    setIsSavingGoal(true);
+    try {
+      await api.updateSettings({ dailyTaskGoal: num });
+      setGoalInput(num);
+      setGoalSaved(true);
+      addToast(`Daily Task Goal updated to ${num} tasks/day`, 'success');
+      setTimeout(() => setGoalSaved(false), 3000);
+    } catch (err) {
+      addToast('Failed to update daily task goal', 'error');
+    } finally {
+      setIsSavingGoal(false);
+    }
+  };
+
+  const expectedTeamGoal = (activeMembersCount || totalMembers || 1) * (parseInt(goalInput, 10) || 20);
+  const goalPercent = Math.min(100, Math.round((totalTasksToday / (expectedTeamGoal || 1)) * 100));
+
   return (
     <div className="space-y-6">
       {/* Date Header & Quick Filter */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm">
         <div>
           <div className="flex items-center gap-2">
-            <Activity className="w-5 h-5 text-indigo-600" />
-            <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">Executive Dashboard</h2>
+            <div className="w-9 h-9 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-xs">
+              <Flame className="w-5 h-5 fill-amber-500 text-amber-500" />
+            </div>
+            <div>
+              <h2 className="text-lg font-black text-slate-900 tracking-tight">LionIX Admin Dashboard</h2>
+              <p className="text-xs text-slate-500">
+                Executive performance metrics, team reports, and daily task targets.
+              </p>
+            </div>
           </div>
-          <p className="text-xs text-slate-500 mt-1">
-            Real-time aggregate performance, hourly task output, and active team contributions.
-          </p>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-2xl px-3 py-1.5 shadow-xs">
-            <Calendar className="w-4 h-4 text-indigo-600" />
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2 shadow-xs">
+            <Calendar className="w-4 h-4 text-amber-600" />
             <input
               type="date"
               value={selectedDate}
@@ -65,10 +107,81 @@ export const AdminDashboard = ({
           </div>
           <button
             onClick={() => onDateChange(new Date().toISOString().split('T')[0])}
-            className="px-3.5 py-2 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition-colors"
+            className="px-4 py-2 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold shadow-md shadow-amber-500/25 transition-all"
           >
             Today
           </button>
+        </div>
+      </div>
+
+      {/* Daily Task Goal Configuration Banner */}
+      <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600 rounded-3xl p-6 text-white shadow-lg shadow-amber-500/20">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+          <div className="space-y-1 max-w-xl">
+            <div className="flex items-center gap-2">
+              <Target className="w-5 h-5 text-amber-200" />
+              <span className="text-xs font-extrabold uppercase tracking-wider text-amber-100">
+                Daily Task Target Target Goal
+              </span>
+            </div>
+            <h3 className="text-xl font-black">
+              Standard Daily Goal: {goalInput} Tasks / Member
+            </h3>
+            <p className="text-xs text-amber-100/90 leading-relaxed">
+              Target for each employee across the 9:00 AM – 6:00 PM workday. Set this value to calibrate company velocity.
+            </p>
+          </div>
+
+          {/* Goal Editor Form */}
+          <form onSubmit={handleSaveGoal} className="flex items-center gap-2 bg-white/10 backdrop-blur-md p-2 rounded-2xl border border-white/20">
+            <div className="flex items-center gap-2 px-3 py-1.5">
+              <span className="text-xs font-bold text-white">Daily Target:</span>
+              <input
+                type="number"
+                min="1"
+                max="500"
+                value={goalInput}
+                onChange={(e) => setGoalInput(e.target.value)}
+                className="w-16 px-2.5 py-1 text-center bg-white text-slate-900 text-sm font-extrabold rounded-xl focus:ring-2 focus:ring-amber-300 focus:outline-none font-mono"
+              />
+              <span className="text-xs text-amber-100 font-bold">tasks</span>
+            </div>
+            <button
+              type="submit"
+              disabled={isSavingGoal}
+              className="flex items-center gap-1 px-4 py-2 bg-white hover:bg-amber-50 text-amber-900 text-xs font-black rounded-xl shadow-sm transition-all"
+            >
+              {isSavingGoal ? (
+                <span>Saving...</span>
+              ) : goalSaved ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Saved!</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Save Goal</span>
+                </>
+              )}
+            </button>
+          </form>
+        </div>
+
+        {/* Progress Bar towards Team Target */}
+        <div className="mt-5 pt-4 border-t border-white/20">
+          <div className="flex items-center justify-between text-xs font-bold mb-1.5">
+            <span className="text-amber-100">
+              Team Progress: {totalTasksToday} of {expectedTeamGoal} total target tasks
+            </span>
+            <span className="font-mono text-white">{goalPercent}% Achieved</span>
+          </div>
+          <div className="w-full bg-black/20 h-2.5 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-white rounded-full transition-all duration-500 shadow-sm"
+              style={{ width: `${goalPercent}%` }}
+            ></div>
+          </div>
         </div>
       </div>
 
@@ -79,7 +192,7 @@ export const AdminDashboard = ({
           value={totalTasksToday}
           subtitle={`Across all team members on ${selectedDate}`}
           icon={CheckCircle2}
-          color="sky"
+          color="amber"
         />
         <StatCard
           title="Active Members"
@@ -93,209 +206,215 @@ export const AdminDashboard = ({
           value={`${avgTasksPerHour}`}
           subtitle="Avg tasks done per working hour"
           icon={TrendingUp}
-          color="violet"
+          color="sky"
         />
         <StatCard
           title="Top Focus Project"
           value={topProject}
-          subtitle={projectDistribution[0] ? `${projectDistribution[0].tasks} tasks completed` : 'No active tasks'}
+          subtitle="Highest task allocation today"
           icon={Briefcase}
-          color="amber"
+          color="violet"
         />
       </div>
 
-      {/* Charts Row */}
+      {/* Middle Section: Hourly Velocity & Project Distribution */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Hourly Velocity Trend */}
+        {/* Hourly Velocity Chart */}
         <div className="lg:col-span-7 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm">
-          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-                <Clock className="w-4 h-4 text-sky-600" />
-                Team Hourly Output Velocity
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">Tasks delivered during each hour block across all members</p>
+              <h3 className="text-sm font-extrabold text-slate-900">Today's Hourly Task Velocity</h3>
+              <p className="text-xs text-slate-400">Aggregated task volume per hour block across team</p>
             </div>
             <button
               onClick={() => onNavigateTab('hourly')}
-              className="text-xs text-sky-600 hover:text-sky-700 font-bold flex items-center gap-1"
+              className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1"
             >
-              Hourly View <ArrowRight className="w-3.5 h-3.5" />
+              <span>Full Matrix</span>
+              <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          <div className="h-64 mt-4">
+          <div className="h-64 w-full">
             {hourlyVelocity.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={hourlyVelocity} margin={{ top: 10, right: 10, left: -20, bottom: 25 }}>
-                  <XAxis
-                    dataKey="hourSlot"
-                    stroke="#94a3b8"
-                    fontSize={10}
+                  <XAxis 
+                    dataKey="hourSlot" 
+                    stroke="#94a3b8" 
+                    fontSize={10} 
                     tickLine={false}
-                    interval={0}
-                    angle={-30}
+                    angle={-25}
                     textAnchor="end"
-                    tickFormatter={(val) => val.split(' - ')[0]}
                   />
-                  <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} allowDecimals={false} />
+                  <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: '#ffffff',
                       borderColor: '#e2e8f0',
-                      borderRadius: '12px',
-                      fontSize: '12px',
+                      borderRadius: '1rem',
                       color: '#0f172a',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
                     }}
-                    formatter={(value) => [`${value} tasks completed`, 'Team Output']}
+                    cursor={{ fill: 'rgba(245, 158, 11, 0.05)' }}
                   />
-                  <Bar dataKey="tasks" fill="#0284c7" radius={[6, 6, 0, 0]}>
-                    {hourlyVelocity.map((entry, idx) => (
-                      <Cell
-                        key={`cell-${idx}`}
-                        fill={idx % 2 === 0 ? '#0284c7' : '#4f46e5'}
-                      />
+                  <Bar dataKey="tasks" radius={[6, 6, 0, 0]}>
+                    {hourlyVelocity.map((_, idx) => (
+                      <Cell key={`cell-${idx}`} fill="#f59e0b" />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center justify-center text-slate-400 text-xs font-medium">
-                No hourly logs recorded for {selectedDate}
+              <div className="h-full flex flex-col items-center justify-center text-slate-400 text-xs">
+                <Clock className="w-8 h-8 mb-2 stroke-1 text-slate-300" />
+                <span>No hourly tasks logged yet for this date.</span>
               </div>
             )}
           </div>
         </div>
 
-        {/* Project Distribution */}
+        {/* Project Distribution Breakdown */}
         <div className="lg:col-span-5 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <div>
-                <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-                  <Briefcase className="w-4 h-4 text-emerald-600" />
-                  Project Workload Split
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">Distribution of tasks across projects</p>
-              </div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-extrabold text-slate-900">Project Allocation</h3>
               <button
-                onClick={() => onNavigateTab('daily')}
-                className="text-xs text-emerald-600 hover:text-emerald-700 font-bold flex items-center gap-1"
+                onClick={() => onNavigateTab('projects')}
+                className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1"
               >
-                Daily Report <ArrowRight className="w-3.5 h-3.5" />
+                <span>Manage</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
+            <p className="text-xs text-slate-400 mb-4">Distribution of completed tasks by admin-assigned project</p>
 
-            <div className="mt-4 space-y-3">
+            <div className="space-y-3">
               {projectDistribution.length > 0 ? (
-                projectDistribution.map((proj) => {
-                  const percentage = totalTasksToday > 0 ? Math.round((proj.tasks / totalTasksToday) * 100) : 0;
+                projectDistribution.map((item) => {
+                  const pct = totalTasksToday > 0 ? Math.round((item.tasks / totalTasksToday) * 100) : 0;
                   return (
-                    <div key={proj.name} className="p-3 bg-slate-50 border border-slate-200 rounded-2xl">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: proj.color }}></span>
-                          <span className="text-xs font-bold text-slate-800 truncate max-w-[180px]">{proj.name}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-mono font-extrabold text-slate-900">{proj.tasks} tasks</span>
-                          <span className="text-[10px] text-slate-500 font-mono">({percentage}%)</span>
-                        </div>
+                    <div key={item.name} className="space-y-1.5">
+                      <div className="flex justify-between text-xs font-bold">
+                        <span className="text-slate-800 flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color || '#f59e0b' }} />
+                          {item.name}
+                        </span>
+                        <span className="text-slate-500 font-mono">
+                          {item.tasks} tasks ({pct}%)
+                        </span>
                       </div>
-                      <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-500"
                           style={{
-                            width: `${percentage}%`,
-                            backgroundColor: proj.color || '#0284c7'
+                            width: `${pct}%`,
+                            backgroundColor: item.color || '#f59e0b'
                           }}
-                        ></div>
+                        />
                       </div>
                     </div>
                   );
                 })
               ) : (
-                <div className="py-8 text-center text-slate-400 text-xs font-medium">
-                  No project tasks logged for this date
+                <div className="py-12 text-center text-slate-400 text-xs">
+                  <Briefcase className="w-8 h-8 mx-auto mb-2 text-slate-300 stroke-1" />
+                  <span>No project activity recorded yet.</span>
                 </div>
               )}
             </div>
           </div>
+
+          <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+            <span>Total Hours Logged: <strong className="text-slate-900 font-mono">{totalHoursLogged} hrs</strong></span>
+            <span>Active Projects: <strong className="text-slate-900 font-mono">{projectDistribution.length}</strong></span>
+          </div>
         </div>
       </div>
 
-      {/* Team Leaderboard */}
+      {/* Member Leaderboard */}
       <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-          <div>
-            <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-              <Award className="w-4 h-4 text-amber-500" />
-              Team Productivity Leaderboard
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">Member contributions for {selectedDate}</p>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Award className="w-5 h-5 text-amber-500" />
+            <h3 className="text-sm font-extrabold text-slate-900">Team Performance Leaderboard</h3>
           </div>
           <button
-            onClick={() => onNavigateTab('hourly')}
-            className="text-xs text-sky-600 hover:text-sky-700 font-bold flex items-center gap-1"
+            onClick={() => onNavigateTab('daily')}
+            className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1"
           >
-            Full Matrix <ArrowRight className="w-3.5 h-3.5" />
+            <span>View Full Daily Workreport</span>
+            <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full text-left">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <tr className="border-b border-slate-100 text-slate-400 uppercase text-[10px] font-extrabold tracking-wider">
                 <th className="pb-3 pl-2">Rank</th>
                 <th className="pb-3">Team Member</th>
-                <th className="pb-3">Role</th>
-                <th className="pb-3 text-center">Hours Logged</th>
-                <th className="pb-3 text-center">Tasks Done</th>
-                <th className="pb-3 text-center">Tasks / Hr</th>
-                <th className="pb-3 text-right pr-2">Status</th>
+                <th className="pb-3">Department</th>
+                <th className="pb-3">Hours Logged</th>
+                <th className="pb-3">Tasks Completed</th>
+                <th className="pb-3">Velocity (Tasks/Hr)</th>
+                <th className="pb-3 pr-2 text-right">Goal Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-xs">
+            <tbody className="divide-y divide-slate-100">
               {memberLeaderboard.length > 0 ? (
-                memberLeaderboard.map((member, index) => (
-                  <tr key={member.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3.5 pl-2 font-mono font-bold text-slate-400">
-                      {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
-                    </td>
-                    <td className="py-3.5">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-white text-xs shadow-xs"
-                          style={{ backgroundColor: member.avatarColor || '#0284c7' }}
-                        >
-                          {member.name.charAt(0)}
+                memberLeaderboard.map((mem, index) => {
+                  const targetGoal = parseInt(goalInput, 10) || 20;
+                  const isGoalMet = mem.totalTasks >= targetGoal;
+                  return (
+                    <tr key={mem.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3.5 pl-2 font-mono font-bold text-slate-400">
+                        {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
+                      </td>
+                      <td className="py-3.5 font-bold text-slate-900">
+                        <div className="flex items-center gap-2.5">
+                          <div
+                            className="w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold text-white shadow-xs"
+                            style={{ backgroundColor: mem.avatarColor || '#0284c7' }}
+                          >
+                            {mem.name.charAt(0)}
+                          </div>
+                          <div>
+                            <span className="block">{mem.name}</span>
+                            <span className="text-[10px] text-slate-400 font-medium">{mem.role || 'Member'}</span>
+                          </div>
                         </div>
-                        <div>
-                          <span className="font-bold text-slate-900 block">{member.name}</span>
-                          <span className="text-[10px] text-slate-500">{member.role}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3.5 text-slate-600 font-medium">{member.role || 'Member'}</td>
-                    <td className="py-3.5 text-center font-mono text-slate-700">{member.hoursLogged} hrs</td>
-                    <td className="py-3.5 text-center font-mono font-extrabold text-sky-600 text-sm">
-                      {member.totalTasks}
-                    </td>
-                    <td className="py-3.5 text-center font-mono font-bold text-emerald-600">
-                      {member.avgRate}
-                    </td>
-                    <td className="py-3.5 text-right pr-2">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active
-                      </span>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="py-3.5">
+                        <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                          {mem.department || 'IT'}
+                        </span>
+                      </td>
+                      <td className="py-3.5 font-mono text-slate-600">{mem.hoursLogged} / 9 hrs</td>
+                      <td className="py-3.5 font-mono font-extrabold text-slate-900 text-sm">
+                        {mem.totalTasks}
+                      </td>
+                      <td className="py-3.5 font-mono text-amber-600 font-bold">{mem.avgRate}</td>
+                      <td className="py-3.5 pr-2 text-right">
+                        {isGoalMet ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <Check className="w-3 h-3" /> Target Met
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">
+                            {targetGoal - mem.totalTasks} to target
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
-                  <td colSpan="7" className="py-8 text-center text-slate-400 font-medium">
-                    No team member activity recorded for {selectedDate}
+                  <td colSpan="7" className="py-8 text-center text-slate-400">
+                    No member activity recorded for this date yet.
                   </td>
                 </tr>
               )}
