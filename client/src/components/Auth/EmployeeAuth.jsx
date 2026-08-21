@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Mail, Lock, ArrowRight, AlertCircle, Flame, ShieldAlert, KeyRound } from 'lucide-react';
+import { Mail, Lock, ArrowRight, AlertCircle, Flame, KeyRound, Eye, EyeOff } from 'lucide-react';
 
 export const UnifiedAuth = ({ onLoginSuccess }) => {
   const [formData, setFormData] = useState({
     identifier: '',
     password: ''
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -100,20 +101,28 @@ export const UnifiedAuth = ({ onLoginSuccess }) => {
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
                   placeholder="Enter your password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none transition-all font-medium"
+                  className="w-full pl-10 pr-11 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none transition-all font-medium"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 absolute right-3 top-1/2 -translate-y-1/2 rounded-lg transition-colors"
+                  title={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-2 py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-sm font-extrabold shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2 transition-all"
+              className="w-full mt-2 py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-sm font-extrabold shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
               {loading ? (
                 <span>Verifying...</span>
@@ -129,7 +138,7 @@ export const UnifiedAuth = ({ onLoginSuccess }) => {
           {/* Admin Managed Notice */}
           <div className="mt-6 pt-5 border-t border-slate-100 text-center">
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              🔒 <strong>Employee Accounts:</strong> Accounts are assigned and created by the Administrator only. Please contact your Admin for login credentials.
+              🔒 <strong>Employee Accounts:</strong> Accounts are assigned and created by the Administrator only. Default employee password is <code className="text-amber-800 font-bold font-mono">Lionixllp</code>.
             </p>
           </div>
         </div>

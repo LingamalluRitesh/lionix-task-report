@@ -6,6 +6,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DB_FILE = path.join(__dirname, 'data.json');
 
+const DEFAULT_EMPLOYEE_PASSWORD = 'Lionixllp';
+
 class Database {
   constructor() {
     this.data = {
@@ -122,21 +124,24 @@ class Database {
       };
     }
 
-    // Check Employees
+    // Check Employees (supports custom password or default Lionixllp)
     const member = this.data.members.find(
       m => (m.email.toLowerCase() === cleanId || m.name.toLowerCase() === cleanId) && m.active
     );
 
-    if (member && member.password === cleanPass) {
-      return {
-        id: member.id,
-        name: member.name,
-        email: member.email,
-        role: member.role,
-        department: member.department || 'IT',
-        avatarColor: member.avatarColor || '#0284c7',
-        isAdmin: false
-      };
+    if (member) {
+      const expectedPass = member.password || DEFAULT_EMPLOYEE_PASSWORD;
+      if (cleanPass === expectedPass || cleanPass === DEFAULT_EMPLOYEE_PASSWORD) {
+        return {
+          id: member.id,
+          name: member.name,
+          email: member.email,
+          role: member.role,
+          department: member.department || 'IT',
+          avatarColor: member.avatarColor || '#0284c7',
+          isAdmin: false
+        };
+      }
     }
 
     return null;
@@ -172,7 +177,7 @@ class Database {
       id: `mem_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
       name: member.name.trim(),
       email: cleanEmail,
-      password: member.password || 'password123',
+      password: member.password || DEFAULT_EMPLOYEE_PASSWORD,
       role: member.role || 'Team Member',
       department: member.department || 'IT',
       avatarColor: member.avatarColor || '#0284c7',
@@ -193,6 +198,10 @@ class Database {
       const existing = this.data.members.find(m => m.email.toLowerCase() === cleanEmail && m.id !== id);
       if (existing) throw new Error('Email is already in use by another member.');
       updates.email = cleanEmail;
+    }
+
+    if (updates.password === '') {
+      delete updates.password;
     }
 
     this.data.members[index] = { ...this.data.members[index], ...updates };

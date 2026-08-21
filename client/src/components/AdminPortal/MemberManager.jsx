@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, Plus, Edit2, Trash2, X, Mail, Briefcase, Lock, RotateCcw } from 'lucide-react';
+import { Users, Plus, Edit2, Trash2, X, Mail, Briefcase, Lock, RotateCcw, Eye, EyeOff } from 'lucide-react';
 
 const AVATAR_COLORS = [
   '#0284c7', '#059669', '#7c3aed', '#db2777', '#d97706', '#0891b2', '#e11d48', '#4f46e5'
@@ -14,10 +14,11 @@ export const MemberManager = ({
 }) => {
   const [showModal, setShowModal] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    password: '',
+    password: 'Lionixllp',
     role: '',
     department: 'IT',
     avatarColor: '#0284c7',
@@ -26,10 +27,11 @@ export const MemberManager = ({
 
   const handleOpenAdd = () => {
     setEditingMember(null);
+    setShowPassword(false);
     setFormData({
       name: '',
       email: '',
-      password: 'password123',
+      password: 'Lionixllp',
       role: '',
       department: 'IT',
       avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
@@ -40,6 +42,7 @@ export const MemberManager = ({
 
   const handleOpenEdit = (member) => {
     setEditingMember(member);
+    setShowPassword(false);
     setFormData({
       name: member.name || '',
       email: member.email || '',
@@ -59,7 +62,10 @@ export const MemberManager = ({
     if (editingMember) {
       await onUpdateMember(editingMember.id, formData);
     } else {
-      await onCreateMember(formData);
+      await onCreateMember({
+        ...formData,
+        password: formData.password || 'Lionixllp'
+      });
     }
     setShowModal(false);
   };
@@ -82,11 +88,11 @@ export const MemberManager = ({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm">
         <div>
           <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-indigo-600" />
-            <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">Team Management</h2>
+            <Users className="w-5 h-5 text-amber-600" />
+            <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">IT Team Management</h2>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Manage IT team member accounts, login passwords, and roles.
+            Create employee accounts, manage login passwords (default: <code className="text-amber-800 font-bold font-mono">Lionixllp</code>), and assign roles.
           </p>
         </div>
 
@@ -102,7 +108,7 @@ export const MemberManager = ({
 
           <button
             onClick={handleOpenAdd}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold shadow-md shadow-amber-500/25 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Add Member Account</span>
@@ -129,7 +135,7 @@ export const MemberManager = ({
                     </div>
                     <div>
                       <h3 className="font-extrabold text-slate-900 text-sm">{member.name}</h3>
-                      <p className="text-xs text-indigo-600 font-bold">{member.role || 'Team Member'}</p>
+                      <p className="text-xs text-amber-700 font-bold">{member.role || 'Team Member'}</p>
                     </div>
                   </div>
 
@@ -177,7 +183,7 @@ export const MemberManager = ({
           <div className="col-span-full py-12 text-center bg-white border border-slate-200 rounded-3xl p-6">
             <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
             <p className="text-sm font-bold text-slate-700">No IT team members registered yet.</p>
-            <p className="text-xs text-slate-400 mt-1">Employees can create an account at the homepage or Admin can add them above.</p>
+            <p className="text-xs text-slate-400 mt-1">Click "+ Add Member Account" above to create employee accounts.</p>
           </div>
         )}
       </div>
@@ -188,7 +194,7 @@ export const MemberManager = ({
           <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-50">
               <div className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-indigo-600" />
+                <Users className="w-5 h-5 text-amber-600" />
                 <h3 className="text-base font-extrabold text-slate-900">
                   {editingMember ? 'Edit IT Member' : 'Create IT Member Account'}
                 </h3>
@@ -212,7 +218,7 @@ export const MemberManager = ({
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="e.g. Jordan Smith"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none font-medium"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none font-medium"
                 />
               </div>
 
@@ -226,21 +232,31 @@ export const MemberManager = ({
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="e.g. jordan.smith@company.com"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none font-medium"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none font-medium"
                 />
               </div>
 
               <div>
                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                  Login Password {editingMember && '(Leave empty to keep current)'}
+                  Login Password {editingMember ? '(Leave empty to keep current)' : '(Default: Lionixllp)'}
                 </label>
-                <input
-                  type="password"
-                  placeholder={editingMember ? '••••••••' : 'Set login password'}
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none font-medium"
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder={editingMember ? '••••••••' : 'Lionixllp'}
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-3.5 pr-10 py-2.5 text-xs text-slate-900 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none font-medium"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="p-1.5 text-slate-400 hover:text-slate-700 absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg transition-colors"
+                    title={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -253,7 +269,7 @@ export const MemberManager = ({
                     value={formData.role}
                     onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                     placeholder="e.g. Software Engineer"
-                    className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none font-medium"
+                    className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none font-medium"
                   />
                 </div>
 
@@ -264,7 +280,7 @@ export const MemberManager = ({
                   <select
                     value={formData.department}
                     onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold text-amber-900"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none font-bold text-amber-900"
                   >
                     <option value="IT">IT</option>
                     <option value="IT - Software Development">IT - Software Development</option>
@@ -288,7 +304,7 @@ export const MemberManager = ({
                       type="button"
                       onClick={() => setFormData({ ...formData, avatarColor: color })}
                       className={`w-7 h-7 rounded-xl transition-transform ${
-                        formData.avatarColor === color ? 'scale-125 ring-2 ring-indigo-600 ring-offset-2' : 'hover:scale-110'
+                        formData.avatarColor === color ? 'scale-125 ring-2 ring-amber-500 ring-offset-2' : 'hover:scale-110'
                       }`}
                       style={{ backgroundColor: color }}
                     />
@@ -306,7 +322,7 @@ export const MemberManager = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/25"
+                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold shadow-md shadow-amber-500/25 cursor-pointer"
                 >
                   {editingMember ? 'Save Changes' : 'Create Account'}
                 </button>
