@@ -3,10 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "main": "index.js",
+  "packageManager": "npm@11.17.0",
   "scripts": {
-    "build": "npm --prefix client install && npm --prefix client run build",
-    "start": "node server/src/index.js",
-    "dev": "node server/src/index.js"
+    "build": "npm --prefix client install && npm --prefix client run build && npm --prefix server install",
+    "start": "node index.js",
+    "dev": "node index.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
