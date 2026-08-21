@@ -30,6 +30,10 @@ class Database {
         if (!this.data.settings) {
           this.data.settings = { dailyTaskGoal: 20 };
         }
+        // Cap any existing goal to < 3000
+        if (this.data.settings.dailyTaskGoal >= 3000) {
+          this.data.settings.dailyTaskGoal = 2999;
+        }
         // Ensure admin configuration is up to date
         if (!this.data.admin || this.data.admin.email !== 'uthej.lionix.com') {
           this.initAdmin();
@@ -80,7 +84,7 @@ class Database {
     this.save();
   }
 
-  // --- Settings (Daily Task Goal) ---
+  // --- Settings (Daily Task Goal strictly < 3000) ---
   getSettings() {
     if (!this.data.settings) {
       this.data.settings = { dailyTaskGoal: 20 };
@@ -93,7 +97,9 @@ class Database {
       this.data.settings = { dailyTaskGoal: 20 };
     }
     if (updates.dailyTaskGoal !== undefined) {
-      const goal = Math.max(1, parseInt(updates.dailyTaskGoal, 10) || 20);
+      let goal = parseInt(updates.dailyTaskGoal, 10) || 20;
+      if (goal >= 3000) goal = 2999;
+      if (goal < 1) goal = 1;
       this.data.settings.dailyTaskGoal = goal;
     }
     this.save();

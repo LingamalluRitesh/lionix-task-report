@@ -12,7 +12,8 @@ import {
   Target,
   Save,
   Flame,
-  Check
+  Check,
+  AlertTriangle
 } from 'lucide-react';
 import { StatCard } from '../UI/StatCard.jsx';
 import { api } from '../../services/api.js';
@@ -53,19 +54,31 @@ export const AdminDashboard = ({
 
   useEffect(() => {
     if (initialGoal) {
-      setGoalInput(initialGoal);
+      setGoalInput(Math.min(2999, initialGoal));
     }
   }, [initialGoal]);
 
   const handleSaveGoal = async (e) => {
     e.preventDefault();
-    const num = Math.max(1, parseInt(goalInput, 10) || 20);
+    const rawNum = parseInt(goalInput, 10);
+
+    if (isNaN(rawNum) || rawNum < 1) {
+      addToast('Daily task goal must be at least 1 task', 'error');
+      return;
+    }
+
+    if (rawNum >= 3000) {
+      addToast('Daily task goal must be less than 3,000 tasks (e.g. 1 to 2999)', 'error');
+      return;
+    }
+
+    const num = Math.min(2999, Math.max(1, rawNum));
     setIsSavingGoal(true);
     try {
       await api.updateSettings({ dailyTaskGoal: num });
       setGoalInput(num);
       setGoalSaved(true);
-      addToast(`Daily Task Goal updated to ${num} tasks/day`, 'success');
+      addToast(`Daily Task Goal set to ${num} tasks/day (< 3,000)`, 'success');
       setTimeout(() => setGoalSaved(false), 3000);
     } catch (err) {
       addToast('Failed to update daily task goal', 'error');
@@ -74,7 +87,8 @@ export const AdminDashboard = ({
     }
   };
 
-  const expectedTeamGoal = (activeMembersCount || totalMembers || 1) * (parseInt(goalInput, 10) || 20);
+  const currentGoalNum = Math.min(2999, Math.max(1, parseInt(goalInput, 10) || 20));
+  const expectedTeamGoal = (activeMembersCount || totalMembers || 1) * currentGoalNum;
   const goalPercent = Math.min(100, Math.round((totalTasksToday / (expectedTeamGoal || 1)) * 100));
 
   return (
@@ -107,49 +121,50 @@ export const AdminDashboard = ({
           </div>
           <button
             onClick={() => onDateChange(new Date().toISOString().split('T')[0])}
-            className="px-4 py-2 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold shadow-md shadow-amber-500/25 transition-all"
+            className="px-4 py-2 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold shadow-md shadow-amber-500/25 transition-all cursor-pointer"
           >
             Today
           </button>
         </div>
       </div>
 
-      {/* Daily Task Goal Configuration Banner */}
+      {/* Daily Task Goal Configuration Banner (< 3000 limit) */}
       <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600 rounded-3xl p-6 text-white shadow-lg shadow-amber-500/20">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
           <div className="space-y-1 max-w-xl">
             <div className="flex items-center gap-2">
               <Target className="w-5 h-5 text-amber-200" />
               <span className="text-xs font-extrabold uppercase tracking-wider text-amber-100">
-                Daily Task Target Target Goal
+                Daily Task Target Goal (Max: &lt; 3,000 tasks)
               </span>
             </div>
             <h3 className="text-xl font-black">
               Standard Daily Goal: {goalInput} Tasks / Member
             </h3>
             <p className="text-xs text-amber-100/90 leading-relaxed">
-              Target for each employee across the 9:00 AM – 6:00 PM workday. Set this value to calibrate company velocity.
+              Target for each employee across the 9:00 AM – 6:00 PM workday (valid range: 1 to 2,999 tasks).
             </p>
           </div>
 
-          {/* Goal Editor Form */}
+          {/* Goal Editor Form with < 3000 validation */}
           <form onSubmit={handleSaveGoal} className="flex items-center gap-2 bg-white/10 backdrop-blur-md p-2 rounded-2xl border border-white/20">
             <div className="flex items-center gap-2 px-3 py-1.5">
               <span className="text-xs font-bold text-white">Daily Target:</span>
               <input
                 type="number"
                 min="1"
-                max="500"
+                max="2999"
                 value={goalInput}
                 onChange={(e) => setGoalInput(e.target.value)}
-                className="w-16 px-2.5 py-1 text-center bg-white text-slate-900 text-sm font-extrabold rounded-xl focus:ring-2 focus:ring-amber-300 focus:outline-none font-mono"
+                placeholder="1-2999"
+                className="w-20 px-2.5 py-1 text-center bg-white text-slate-900 text-sm font-extrabold rounded-xl focus:ring-2 focus:ring-amber-300 focus:outline-none font-mono"
               />
               <span className="text-xs text-amber-100 font-bold">tasks</span>
             </div>
             <button
               type="submit"
               disabled={isSavingGoal}
-              className="flex items-center gap-1 px-4 py-2 bg-white hover:bg-amber-50 text-amber-900 text-xs font-black rounded-xl shadow-sm transition-all"
+              className="flex items-center gap-1 px-4 py-2 bg-white hover:bg-amber-50 text-amber-900 text-xs font-black rounded-xl shadow-sm transition-all cursor-pointer"
             >
               {isSavingGoal ? (
                 <span>Saving...</span>
@@ -228,7 +243,7 @@ export const AdminDashboard = ({
             </div>
             <button
               onClick={() => onNavigateTab('hourly')}
-              className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1"
+              className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 cursor-pointer"
             >
               <span>Full Matrix</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -283,7 +298,7 @@ export const AdminDashboard = ({
               <h3 className="text-sm font-extrabold text-slate-900">Project Allocation</h3>
               <button
                 onClick={() => onNavigateTab('projects')}
-                className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1"
+                className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 cursor-pointer"
               >
                 <span>Manage</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -343,7 +358,7 @@ export const AdminDashboard = ({
           </div>
           <button
             onClick={() => onNavigateTab('daily')}
-            className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1"
+            className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 cursor-pointer"
           >
             <span>View Full Daily Workreport</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -366,7 +381,7 @@ export const AdminDashboard = ({
             <tbody className="divide-y divide-slate-100">
               {memberLeaderboard.length > 0 ? (
                 memberLeaderboard.map((mem, index) => {
-                  const targetGoal = parseInt(goalInput, 10) || 20;
+                  const targetGoal = Math.min(2999, parseInt(goalInput, 10) || 20);
                   const isGoalMet = mem.totalTasks >= targetGoal;
                   return (
                     <tr key={mem.id} className="hover:bg-slate-50/80 transition-colors">
