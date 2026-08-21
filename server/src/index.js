@@ -23,9 +23,9 @@ app.use('/api/members', membersRouter);
 app.use('/api/projects', projectsRouter);
 app.use('/api/reports', reportsRouter);
 
-// Health check
+// Health check endpoint for Railway deployment monitoring
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', time: new Date().toISOString() });
+  res.json({ status: 'ok', service: 'LionIX Task Report', time: new Date().toISOString() });
 });
 
 // Serve frontend static build
@@ -39,11 +39,11 @@ app.get('*', (req, res) => {
   }
   res.sendFile(path.join(clientDist, 'index.html'), (err) => {
     if (err) {
-      res.status(200).send('TaskPulse API server running on port ' + PORT);
+      res.status(200).send('LionIX Task Report API server running on port ' + PORT);
     }
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 TaskPulse Server running on http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 LionIX Task Report Server running on port ${PORT}`);
 });

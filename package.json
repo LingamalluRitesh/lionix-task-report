@@ -1,11 +1,18 @@
 {
-  "name": "team-task-tracker",
+  "name": "lionix-task-report",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "install-all": "npm --prefix server install && npm --prefix client install",
-    "start-server": "npm --prefix server start",
-    "start-client": "npm --prefix client run dev",
-    "build-client": "npm --prefix client run build"
+    "build": "npm --prefix client install && npm --prefix client run build",
+    "start": "node server/src/index.js",
+    "dev": "node server/src/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
