@@ -27,14 +27,22 @@ const MainApp = () => {
   // Unified Authenticated User (Saved in localStorage)
   const [currentUser, setCurrentUser] = useState(() => {
     try {
-      const saved = localStorage.getItem('lionix_user');
+      const saved = localStorage.getItem('lionix_user') || localStorage.getItem('taskpulse_employee') || localStorage.getItem('taskpulse_admin');
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
     }
   });
 
-  const isAdmin = currentUser?.isAdmin === true;
+  // Strict & Robust Admin Recognition
+  const isAdmin = Boolean(
+    currentUser && (
+      currentUser.isAdmin === true ||
+      currentUser.role === 'Administrator' ||
+      (currentUser.email && currentUser.email.toLowerCase().includes('uthej')) ||
+      (currentUser.name && currentUser.name.toLowerCase().includes('admin'))
+    )
+  );
 
   // Admin Active Tab
   const [currentAdminTab, setCurrentAdminTab] = useState('overview'); // 'overview' | 'hourly' | 'daily' | 'members' | 'projects'
@@ -132,18 +140,34 @@ const MainApp = () => {
 
   // Unified Login Handler
   const handleLoginSuccess = (user) => {
-    setCurrentUser(user);
-    localStorage.setItem('lionix_user', JSON.stringify(user));
-    if (user.isAdmin) {
-      addToast(`Welcome Administrator, ${user.name}! Redirecting to Admin Portal...`, 'success');
+    const userIsAdmin = Boolean(
+      user.isAdmin === true ||
+      user.role === 'Administrator' ||
+      (user.email && user.email.toLowerCase().includes('uthej')) ||
+      (user.name && user.name.toLowerCase().includes('admin'))
+    );
+
+    const enrichedUser = {
+      ...user,
+      isAdmin: userIsAdmin
+    };
+
+    setCurrentUser(enrichedUser);
+    localStorage.setItem('lionix_user', JSON.stringify(enrichedUser));
+    
+    if (userIsAdmin) {
+      addToast(`Welcome to LionIX Admin Dashboard, ${enrichedUser.name}!`, 'success');
+      setCurrentAdminTab('overview');
     } else {
-      addToast(`Welcome to LionIX, ${user.name}!`, 'success');
+      addToast(`Welcome to LionIX, ${enrichedUser.name}!`, 'success');
     }
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
     localStorage.removeItem('lionix_user');
+    localStorage.removeItem('taskpulse_employee');
+    localStorage.removeItem('taskpulse_admin');
     addToast('Signed out of LionIX', 'info');
   };
 
@@ -268,6 +292,8 @@ const MainApp = () => {
       await api.resetData();
       setCurrentUser(null);
       localStorage.removeItem('lionix_user');
+      localStorage.removeItem('taskpulse_employee');
+      localStorage.removeItem('taskpulse_admin');
       addToast('System reset: All accounts, projects, and logs cleared.', 'info');
       await fetchMasterData();
       await fetchAdminData();
@@ -307,7 +333,7 @@ const MainApp = () => {
           /* UNIFIED LOGIN / REGISTRATION PAGE */
           <UnifiedAuth onLoginSuccess={handleLoginSuccess} />
         ) : isAdmin ? (
-          /* ADMIN PORTAL */
+          /* LIONIX ADMIN PORTAL & DASHBOARD */
           <div className="space-y-6">
             {/* Admin Tab Navigation on Mobile / Tablet */}
             <div className="flex lg:hidden items-center gap-1.5 p-1 bg-white border border-slate-200 rounded-2xl overflow-x-auto shadow-xs">
@@ -315,7 +341,7 @@ const MainApp = () => {
                 onClick={() => setCurrentAdminTab('overview')}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold shrink-0 transition-all ${
                   currentAdminTab === 'overview'
-                    ? 'bg-amber-600 text-white shadow-sm'
+                    ? 'bg-amber-500 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -326,7 +352,7 @@ const MainApp = () => {
                 onClick={() => setCurrentAdminTab('hourly')}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold shrink-0 transition-all ${
                   currentAdminTab === 'hourly'
-                    ? 'bg-amber-600 text-white shadow-sm'
+                    ? 'bg-amber-500 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -337,7 +363,7 @@ const MainApp = () => {
                 onClick={() => setCurrentAdminTab('daily')}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold shrink-0 transition-all ${
                   currentAdminTab === 'daily'
-                    ? 'bg-amber-600 text-white shadow-sm'
+                    ? 'bg-amber-500 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -348,7 +374,7 @@ const MainApp = () => {
                 onClick={() => setCurrentAdminTab('members')}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold shrink-0 transition-all ${
                   currentAdminTab === 'members'
-                    ? 'bg-amber-600 text-white shadow-sm'
+                    ? 'bg-amber-500 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -359,7 +385,7 @@ const MainApp = () => {
                 onClick={() => setCurrentAdminTab('projects')}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold shrink-0 transition-all ${
                   currentAdminTab === 'projects'
-                    ? 'bg-amber-600 text-white shadow-sm'
+                    ? 'bg-amber-500 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
