@@ -7,7 +7,8 @@ import {
   ChevronDown, 
   FolderKanban, 
   Check,
-  ListTodo
+  ListTodo,
+  Target
 } from 'lucide-react';
 
 const STANDARD_HOURS = [
@@ -27,6 +28,7 @@ export const HourlyTaskGrid = ({
   selectedDate,
   projects = [],
   logs = [],
+  dailyTaskGoal = 20,
   onSaveLog,
   onDeleteLog
 }) => {
@@ -171,10 +173,13 @@ export const HourlyTaskGrid = ({
               <Clock className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">Hourly Task Session</h2>
                 <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-mono">
                   Fixed 9:00 AM – 6:00 PM
+                </span>
+                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
+                  <Target className="w-3 h-3" /> Goal: {dailyTaskGoal} tasks/day
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">

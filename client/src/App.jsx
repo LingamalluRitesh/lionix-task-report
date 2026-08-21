@@ -47,9 +47,10 @@ const MainApp = () => {
   // Admin Active Tab
   const [currentAdminTab, setCurrentAdminTab] = useState('overview'); // 'overview' | 'hourly' | 'daily' | 'members' | 'projects'
 
-  // Master Data
+  // Master Data & Global Settings
   const [members, setMembers] = useState([]);
   const [projects, setProjects] = useState([]);
+  const [dailyTaskGoal, setDailyTaskGoal] = useState(20);
   const [loading, setLoading] = useState(true);
 
   // Selected Date
@@ -68,15 +69,19 @@ const MainApp = () => {
   const [editingLog, setEditingLog] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  // Fetch Master Data
+  // Fetch Master Data & Global Goal
   const fetchMasterData = async () => {
     try {
-      const [membersData, projectsData] = await Promise.all([
+      const [membersData, projectsData, settingsData] = await Promise.all([
         api.getMembers(),
-        api.getProjects()
+        api.getProjects(),
+        api.getSettings()
       ]);
       setMembers(membersData);
       setProjects(projectsData);
+      if (settingsData?.dailyTaskGoal) {
+        setDailyTaskGoal(settingsData.dailyTaskGoal);
+      }
     } catch (err) {
       console.error('Error loading master data:', err);
     }
@@ -100,16 +105,20 @@ const MainApp = () => {
   const fetchAdminData = useCallback(async () => {
     if (!isAdmin || !selectedDate) return;
     try {
-      const [overviewData, matrixData, logsData, summaryData] = await Promise.all([
+      const [overviewData, matrixData, logsData, summaryData, settingsData] = await Promise.all([
         api.getAdminOverview({ date: selectedDate }),
         api.getMatrix(selectedDate),
         api.getHourlyLogs({ date: selectedDate }),
-        api.getDailySummary({ date: selectedDate })
+        api.getDailySummary({ date: selectedDate }),
+        api.getSettings()
       ]);
       setAdminOverview(overviewData);
       setAdminMatrix(matrixData);
       setAdminHourlyLogs(logsData);
       setAdminDailySummaries(summaryData);
+      if (settingsData?.dailyTaskGoal) {
+        setDailyTaskGoal(settingsData.dailyTaskGoal);
+      }
     } catch (err) {
       console.error('Error fetching admin data:', err);
     }
@@ -330,7 +339,7 @@ const MainApp = () => {
             <p className="text-sm font-bold text-slate-500">Loading LionIX Workspace...</p>
           </div>
         ) : !currentUser ? (
-          /* UNIFIED LOGIN / REGISTRATION PAGE */
+          /* UNIFIED LOGIN PAGE */
           <UnifiedAuth onLoginSuccess={handleLoginSuccess} />
         ) : isAdmin ? (
           /* LIONIX ADMIN PORTAL & DASHBOARD */
@@ -469,6 +478,7 @@ const MainApp = () => {
                   selectedDate={selectedDate}
                   projects={projects}
                   logs={employeeLogs}
+                  dailyTaskGoal={dailyTaskGoal}
                   onSaveLog={handleSaveHourlyLog}
                   onDeleteLog={handleDeleteHourlyLog}
                 />
@@ -480,6 +490,7 @@ const MainApp = () => {
                   member={currentUser}
                   selectedDate={selectedDate}
                   logs={employeeLogs}
+                  dailyTaskGoal={dailyTaskGoal}
                 />
               </div>
             </div>
