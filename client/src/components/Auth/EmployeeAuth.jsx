@@ -26,7 +26,7 @@ export const UnifiedAuth = ({ onLoginSuccess }) => {
       });
       const data = await res.json();
       if (!data.success) {
-        throw new Error(data.error || 'Invalid username/email or password');
+        throw new Error(data.error || 'Invalid name/email or password');
       }
       onLoginSuccess(data.user);
     } catch (err) {
@@ -79,14 +79,14 @@ export const UnifiedAuth = ({ onLoginSuccess }) => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Work Email or Username
+                First Name or Email
               </label>
               <div className="relative">
                 <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   required
-                  placeholder="e.g. uthej.lionix.com or employee@company.com"
+                  placeholder="e.g. Ritesh, Rohith, Sravani or email"
                   value={formData.identifier}
                   onChange={(e) => setFormData({ ...formData, identifier: e.target.value })}
                   className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none transition-all font-medium"
@@ -103,7 +103,7 @@ export const UnifiedAuth = ({ onLoginSuccess }) => {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
-                  placeholder="Enter your password"
+                  placeholder="Enter password (default: Lionixllp)"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="w-full pl-10 pr-11 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none transition-all font-medium"
@@ -138,7 +138,7 @@ export const UnifiedAuth = ({ onLoginSuccess }) => {
           {/* Admin Managed Notice */}
           <div className="mt-6 pt-5 border-t border-slate-100 text-center">
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              🔒 <strong>Employee Accounts:</strong> Accounts are assigned and created by the Administrator only. Default employee password is <code className="text-amber-800 font-bold font-mono">Lionixllp</code>.
+              🔑 <strong>Employee Quick Login:</strong> Type your <strong>First Name</strong> (e.g. <code className="text-amber-800 font-bold font-mono">Ritesh</code>) and password <code className="text-amber-800 font-bold font-mono">Lionixllp</code> to sign in.
             </p>
           </div>
         </div>

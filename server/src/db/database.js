@@ -295,10 +295,19 @@ class Database {
         }
       }
 
-      // Check Members
+      // Check Members (supports email, full name, first name, or matching name prefix)
       const memberRes = await this.pool.query(
-        'SELECT * FROM members WHERE (LOWER(email) = $1 OR LOWER(name) = $1) AND active = true',
-        [cleanId]
+        `SELECT * FROM members 
+         WHERE (
+           LOWER(email) = $1 
+           OR LOWER(name) = $1 
+           OR LOWER(SPLIT_PART(name, ' ', 1)) = $1
+           OR LOWER(name) LIKE $2
+           OR LOWER(email) LIKE $2
+         ) AND active = true 
+         ORDER BY (LOWER(SPLIT_PART(name, ' ', 1)) = $1) DESC, id ASC 
+         LIMIT 1`,
+        [cleanId, `${cleanId}%`]
       );
       if (memberRes.rows.length > 0) {
         const member = memberRes.rows[0];
@@ -335,7 +344,13 @@ class Database {
     }
 
     const member = this.localData.members.find(
-      m => (m.email.toLowerCase() === cleanId || m.name.toLowerCase() === cleanId) && m.active
+      m => (
+        m.email.toLowerCase() === cleanId ||
+        m.name.toLowerCase() === cleanId ||
+        m.name.toLowerCase().split(' ')[0] === cleanId ||
+        m.name.toLowerCase().startsWith(cleanId) ||
+        m.email.toLowerCase().startsWith(cleanId)
+      ) && m.active
     );
     if (member && (cleanPass === member.password || cleanPass === DEFAULT_EMPLOYEE_PASSWORD)) {
       return {
