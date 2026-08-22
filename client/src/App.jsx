@@ -12,6 +12,7 @@ import { MemberManager } from './components/AdminPortal/MemberManager.jsx';
 import { ProjectManager } from './components/AdminPortal/ProjectManager.jsx';
 import { EditTaskModal } from './components/AdminPortal/EditTaskModal.jsx';
 import { ToastProvider, useToast } from './components/UI/Toast.jsx';
+import { ErrorBoundary } from './components/UI/ErrorBoundary.jsx';
 import { api } from './services/api.js';
 import { 
   Activity, 
@@ -650,8 +651,10 @@ const MainApp = () => {
 
 export default function App() {
   return (
-    <ToastProvider>
-      <MainApp />
-    </ToastProvider>
+    <ErrorBoundary>
+      <ToastProvider>
+        <MainApp />
+      </ToastProvider>
+    </ErrorBoundary>
   );
 }

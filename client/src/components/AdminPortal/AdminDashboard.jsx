@@ -51,7 +51,7 @@ export const AdminDashboard = ({
     projectDistribution = [],
     hourlyVelocity = [],
     memberLeaderboard = []
-  } = overview;
+  } = overview || {};
 
   const [goalInput, setGoalInput] = useState(initialGoal);
   const [isSavingGoal, setIsSavingGoal] = useState(false);
@@ -118,6 +118,12 @@ export const AdminDashboard = ({
   const expectedTeamGoal = (activeMembersCount || totalMembers || 1) * currentGoalNum;
   const goalPercent = Math.min(100, Math.round((totalTasksToday / (expectedTeamGoal || 1)) * 100));
   const isNightShift = currentShift === 'night';
+
+  // Safe normalized hourly velocity for chart
+  const normalizedVelocity = (hourlyVelocity || []).map(entry => ({
+    hour: entry.hour || entry.hourSlot || '',
+    tasks: Number(entry.tasks) || 0
+  }));
 
   return (
     <div className="space-y-6">
@@ -314,15 +320,15 @@ export const AdminDashboard = ({
           </div>
 
           <div className="h-64 w-full">
-            {hourlyVelocity.length > 0 ? (
+            {normalizedVelocity.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={hourlyVelocity} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
+                <BarChart data={normalizedVelocity} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
                   <XAxis
                     dataKey="hour"
                     tickLine={false}
                     axisLine={false}
                     tick={{ fontSize: 10, fill: '#64748b' }}
-                    tickFormatter={(val) => val.split(' - ')[0]}
+                    tickFormatter={(val) => (typeof val === 'string' && val.includes(' - ') ? val.split(' - ')[0] : String(val || ''))}
                     angle={-25}
                     textAnchor="end"
                   />
@@ -344,7 +350,7 @@ export const AdminDashboard = ({
                     labelFormatter={(label) => `Time: ${label}`}
                   />
                   <Bar dataKey="tasks" radius={[6, 6, 0, 0]}>
-                    {hourlyVelocity.map((entry, idx) => (
+                    {normalizedVelocity.map((entry, idx) => (
                       <Cell
                         key={`cell-${idx}`}
                         fill={isNightShift ? (entry.tasks > 0 ? '#4f46e5' : '#cbd5e1') : (entry.tasks > 0 ? '#d97706' : '#cbd5e1')}
@@ -373,20 +379,20 @@ export const AdminDashboard = ({
             </div>
 
             <div className="space-y-3.5">
-              {projectDistribution.length > 0 ? (
-                projectDistribution.map((p) => (
-                  <div key={p.projectName} className="space-y-1.5">
+              {projectDistribution && projectDistribution.length > 0 ? (
+                projectDistribution.map((p, idx) => (
+                  <div key={p.projectName || p.name || idx} className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2 truncate">
                         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color || '#0284c7' }}></span>
-                        <span className="font-bold text-slate-800 truncate">{p.projectName}</span>
+                        <span className="font-bold text-slate-800 truncate">{p.projectName || p.name}</span>
                       </div>
-                      <span className="font-mono font-extrabold text-slate-900">{p.tasks} ({p.percentage}%)</span>
+                      <span className="font-mono font-extrabold text-slate-900">{p.tasks} ({p.percentage || 0}%)</span>
                     </div>
                     <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all duration-500"
-                        style={{ width: `${p.percentage}%`, backgroundColor: p.color || '#0284c7' }}
+                        style={{ width: `${p.percentage || 0}%`, backgroundColor: p.color || '#0284c7' }}
                       ></div>
                     </div>
                   </div>
@@ -400,7 +406,7 @@ export const AdminDashboard = ({
           <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
             <span>Primary Focus:</span>
             <span className="font-extrabold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-200 truncate max-w-[150px]">
-              {topProject}
+              {topProject || 'None'}
             </span>
           </div>
         </div>
@@ -435,11 +441,15 @@ export const AdminDashboard = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {memberLeaderboard.length > 0 ? (
+              {memberLeaderboard && memberLeaderboard.length > 0 ? (
                 memberLeaderboard.map((m, idx) => {
-                  const memberPercent = Math.min(100, Math.round(((m.totalTasks || 0) / currentGoalNum) * 100));
+                  const memberPercent = Math.min(100, Math.round(((Number(m.totalTasks) || 0) / currentGoalNum) * 100));
+                  const memberName = m.memberName || m.name || 'Team Member';
+                  const memberRole = m.memberRole || m.role || 'Python Developer';
+                  const memberColor = m.memberColor || m.avatarColor || '#0284c7';
+
                   return (
-                    <tr key={m.memberId} className="hover:bg-slate-50/70 transition-colors">
+                    <tr key={m.memberId || m.id || idx} className="hover:bg-slate-50/70 transition-colors">
                       <td className="py-3.5 pl-2">
                         <div className="flex items-center gap-3">
                           <span className={`w-6 h-6 rounded-xl flex items-center justify-center font-bold text-xs font-mono shadow-2xs ${
@@ -455,24 +465,24 @@ export const AdminDashboard = ({
                           </span>
                           <div
                             className="w-7 h-7 rounded-xl flex items-center justify-center font-bold text-white text-xs shadow-xs"
-                            style={{ backgroundColor: m.memberColor || '#0284c7' }}
+                            style={{ backgroundColor: memberColor }}
                           >
-                            {m.memberName.charAt(0)}
+                            {memberName.charAt(0)}
                           </div>
-                          <span className="font-bold text-slate-900">{m.memberName}</span>
+                          <span className="font-bold text-slate-900">{memberName}</span>
                         </div>
                       </td>
                       <td className="py-3.5 text-slate-500 font-medium">
-                        {m.memberRole || 'Python Developer'}
+                        {memberRole}
                       </td>
                       <td className="py-3.5 text-center font-mono font-black text-amber-600 text-sm">
-                        {m.totalTasks}
+                        {m.totalTasks || 0}
                       </td>
                       <td className="py-3.5 text-center font-mono text-slate-700">
-                        {m.hoursWorked} hrs
+                        {m.hoursWorked || m.hoursLogged || 0} hrs
                       </td>
                       <td className="py-3.5 text-center font-mono font-bold text-sky-600">
-                        {m.avgTasksPerHour}
+                        {m.avgTasksPerHour || m.avgRate || '0.0'}
                       </td>
                       <td className="py-3.5 pr-2 text-right">
                         <div className="flex items-center justify-end gap-2">

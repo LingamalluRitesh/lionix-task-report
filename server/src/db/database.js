@@ -898,7 +898,9 @@ class Database {
       const proj = allProjects.find(p => p.name === name);
       return {
         name,
+        projectName: name,
         tasks,
+        percentage: totalTasksToday > 0 ? Math.round((tasks / totalTasksToday) * 100) : 0,
         color: proj ? proj.color : (name.includes('Infography') ? '#7c3aed' : '#0284c7')
       };
     }).sort((a, b) => b.tasks - a.tasks);
@@ -909,6 +911,7 @@ class Database {
     });
 
     const hourlyVelocity = Object.entries(hourlyVelocityMap).map(([slot, tasks]) => ({
+      hour: slot,
       hourSlot: slot,
       tasks
     })).sort((a, b) => a.hourSlot.localeCompare(b.hourSlot));
@@ -919,28 +922,37 @@ class Database {
         const mem = allMembers.find(m => m.id === l.memberId);
         memberLeaderboardMap[l.memberId] = {
           id: l.memberId,
+          memberId: l.memberId,
           name: mem ? mem.name : (l.memberName || 'Team Member'),
-          role: mem ? mem.role : 'Python Developer',
+          memberName: mem ? mem.name : (l.memberName || 'Team Member'),
+          role: mem ? mem.role : (l.memberRole || 'Python Developer'),
+          memberRole: mem ? mem.role : (l.memberRole || 'Python Developer'),
           department: mem ? (mem.department || 'IT') : 'IT',
-          avatarColor: mem ? mem.avatarColor : '#0284c7',
+          memberDepartment: mem ? (mem.department || 'IT') : 'IT',
+          avatarColor: mem ? (mem.avatarColor || mem.avatar_color) : '#0284c7',
+          memberColor: mem ? (mem.avatarColor || mem.avatar_color) : '#0284c7',
           totalTasks: 0,
+          hoursWorked: 0,
           hoursLogged: 0
         };
       }
       memberLeaderboardMap[l.memberId].totalTasks += Number(l.taskCount) || 0;
+      memberLeaderboardMap[l.memberId].hoursWorked += 1;
       memberLeaderboardMap[l.memberId].hoursLogged += 1;
     });
 
     const memberLeaderboard = Object.values(memberLeaderboardMap)
       .map(m => ({
         ...m,
-        avgRate: m.hoursLogged > 0 ? (m.totalTasks / m.hoursLogged).toFixed(1) : '0.0'
+        avgRate: m.hoursWorked > 0 ? (m.totalTasks / m.hoursWorked).toFixed(1) : '0.0',
+        avgTasksPerHour: m.hoursWorked > 0 ? (m.totalTasks / m.hoursWorked).toFixed(1) : '0.0'
       }))
       .sort((a, b) => b.totalTasks - a.totalTasks);
 
     return {
       date: targetDate,
       dailyTaskGoal: settings.dailyTaskGoal || 100,
+      currentShift: settings.currentShift || 'morning',
       totalTasksToday,
       totalMembers: allMembers.length,
       activeMembersCount: activeMemberIds.size,
