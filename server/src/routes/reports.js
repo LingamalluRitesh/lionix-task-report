@@ -188,10 +188,24 @@ router.get('/export-csv', async (req, res) => {
 
     if (isDaily) {
       const summaries = await db.getDailySummary({ date, startDate, endDate });
-      let csv = 'Date,Member Name,Member Role,Total Tasks,Hours Worked,Avg Tasks/Hour,Projects Breakdown\n';
+      let csv = 'Date,Member Name,Member Role,Total Tasks,Hours Worked,Avg Tasks/Hour,Projects Breakdown,Work Description / Task Details\n';
       summaries.forEach(s => {
         const projBreakdownStr = s.projectsList.map(p => `${p.projectName} (${p.tasks} tasks)`).join('; ');
-        csv += `"${s.date}","${s.memberName}","${s.memberRole}",${s.totalTasks},${s.hoursWorked},${s.avgTasksPerHour},"${projBreakdownStr}"\n`;
+        
+        // Collect and format all work descriptions logged throughout the day
+        const descriptions = (s.logs || [])
+          .filter(l => (l.notes && l.notes.trim().length > 0) || Number(l.taskCount) > 0)
+          .map(l => {
+            const time = l.hourSlot ? l.hourSlot.split(' - ')[0] : '';
+            const taskStr = `${l.taskCount} tasks`;
+            const noteStr = l.notes ? ` - ${l.notes.replace(/"/g, '""')}` : '';
+            const proj = l.projectName || 'General';
+            return `[${time} ${proj}] ${taskStr}${noteStr}`;
+          })
+          .join('; ');
+
+        const safeDesc = descriptions || 'Completed assigned daily tasks';
+        csv += `"${s.date}","${s.memberName}","${s.memberRole}",${s.totalTasks},${s.hoursWorked},${s.avgTasksPerHour},"${projBreakdownStr}","${safeDesc}"\n`;
       });
 
       res.setHeader('Content-Type', 'text/csv');
