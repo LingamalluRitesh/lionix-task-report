@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DB_DIR = process.env.DATA_DIR || path.join(__dirname);
+const DB_DIR = process.env.RAILWAY_VOLUME_MOUNT_PATH || process.env.DATA_DIR || path.join(__dirname);
 try {
   if (!fs.existsSync(DB_DIR)) {
     fs.mkdirSync(DB_DIR, { recursive: true });
@@ -15,6 +15,7 @@ try {
 }
 
 const DB_FILE = path.join(DB_DIR, 'data.json');
+console.log('📂 LionIX Database persistent storage mounted at:', DB_FILE);
 
 const DEFAULT_EMPLOYEE_PASSWORD = 'Lionixllp';
 
