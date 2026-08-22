@@ -4,7 +4,7 @@ import { db } from '../db/database.js';
 const router = express.Router();
 
 // Unified Login Endpoint (Handles both Admin & Employee accounts)
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   try {
     const { email, identifier, password } = req.body;
     const loginIdentifier = (email || identifier || '').trim();
@@ -16,7 +16,7 @@ router.post('/login', (req, res) => {
       });
     }
 
-    const user = db.validateLogin(loginIdentifier, password);
+    const user = await db.validateLogin(loginIdentifier, password);
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -34,7 +34,7 @@ router.post('/login', (req, res) => {
 });
 
 // Employee Registration Endpoint
-router.post('/register', (req, res) => {
+router.post('/register', async (req, res) => {
   try {
     const { name, email, password, role, department } = req.body;
 
@@ -45,11 +45,11 @@ router.post('/register', (req, res) => {
       });
     }
 
-    const newMember = db.addMember({
+    const newMember = await db.addMember({
       name,
       email,
       password,
-      role: role || 'Software Engineer',
+      role: role || 'Python Developer',
       department: department || 'IT'
     });
 
@@ -66,10 +66,10 @@ router.post('/register', (req, res) => {
 });
 
 // Reset data endpoint
-router.post('/reset', (req, res) => {
+router.post('/reset', async (req, res) => {
   try {
     db.resetData();
-    res.json({ success: true, message: 'All dummy users, projects, and logs cleared successfully.' });
+    res.json({ success: true, message: 'Data reset successfully' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

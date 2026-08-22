@@ -4,10 +4,10 @@ import { db } from '../db/database.js';
 const router = express.Router();
 
 // GET all projects
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const activeOnly = req.query.active === 'true';
-    const projects = db.getProjects(activeOnly);
+    const projects = await db.getProjects(activeOnly);
     res.json({ success: true, data: projects });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -15,9 +15,9 @@ router.get('/', (req, res) => {
 });
 
 // GET single project
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const project = db.getProjectById(req.params.id);
+    const project = await db.getProjectById(req.params.id);
     if (!project) {
       return res.status(404).json({ success: false, error: 'Project not found' });
     }
@@ -28,13 +28,13 @@ router.get('/:id', (req, res) => {
 });
 
 // POST create project
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { name, code, description, color, status } = req.body;
     if (!name || name.trim() === '') {
       return res.status(400).json({ success: false, error: 'Project name is required' });
     }
-    const newProject = db.addProject({ name: name.trim(), code, description, color, status });
+    const newProject = await db.addProject({ name: name.trim(), code, description, color, status });
     res.status(201).json({ success: true, data: newProject });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -42,9 +42,9 @@ router.post('/', (req, res) => {
 });
 
 // PUT update project
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
-    const updated = db.updateProject(req.params.id, req.body);
+    const updated = await db.updateProject(req.params.id, req.body);
     if (!updated) {
       return res.status(404).json({ success: false, error: 'Project not found' });
     }
@@ -55,9 +55,9 @@ router.put('/:id', (req, res) => {
 });
 
 // DELETE project
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
-    const deleted = db.deleteProject(req.params.id);
+    const deleted = await db.deleteProject(req.params.id);
     if (!deleted) {
       return res.status(404).json({ success: false, error: 'Project not found' });
     }

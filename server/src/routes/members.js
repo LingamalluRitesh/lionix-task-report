@@ -4,10 +4,10 @@ import { db } from '../db/database.js';
 const router = express.Router();
 
 // GET all members
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const activeOnly = req.query.active === 'true';
-    const members = db.getMembers(activeOnly);
+    const members = await db.getMembers(activeOnly);
     res.json({ success: true, data: members });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -15,9 +15,9 @@ router.get('/', (req, res) => {
 });
 
 // GET single member
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const member = db.getMemberById(req.params.id);
+    const member = await db.getMemberById(req.params.id);
     if (!member) {
       return res.status(404).json({ success: false, error: 'Member not found' });
     }
@@ -28,13 +28,13 @@ router.get('/:id', (req, res) => {
 });
 
 // POST create member
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
-    const { name, email, role, department, avatarColor, active } = req.body;
+    const { name, email, password, role, department, avatarColor, active } = req.body;
     if (!name || name.trim() === '') {
       return res.status(400).json({ success: false, error: 'Name is required' });
     }
-    const newMember = db.addMember({ name: name.trim(), email, role, department, avatarColor, active });
+    const newMember = await db.addMember({ name: name.trim(), email, password, role, department, avatarColor, active });
     res.status(201).json({ success: true, data: newMember });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -42,9 +42,9 @@ router.post('/', (req, res) => {
 });
 
 // PUT update member
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
-    const updated = db.updateMember(req.params.id, req.body);
+    const updated = await db.updateMember(req.params.id, req.body);
     if (!updated) {
       return res.status(404).json({ success: false, error: 'Member not found' });
     }
@@ -55,9 +55,9 @@ router.put('/:id', (req, res) => {
 });
 
 // DELETE member
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
-    const deleted = db.deleteMember(req.params.id);
+    const deleted = await db.deleteMember(req.params.id);
     if (!deleted) {
       return res.status(404).json({ success: false, error: 'Member not found' });
     }

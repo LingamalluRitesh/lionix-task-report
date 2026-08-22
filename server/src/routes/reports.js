@@ -17,9 +17,9 @@ const STANDARD_HOURS = [
 ];
 
 // GET settings (Daily Task Goal)
-router.get('/settings', (req, res) => {
+router.get('/settings', async (req, res) => {
   try {
-    const settings = db.getSettings();
+    const settings = await db.getSettings();
     res.json({ success: true, data: settings });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -27,10 +27,10 @@ router.get('/settings', (req, res) => {
 });
 
 // PUT update settings (Daily Task Goal)
-router.put('/settings', (req, res) => {
+router.put('/settings', async (req, res) => {
   try {
     const { dailyTaskGoal } = req.body;
-    const settings = db.updateSettings({ dailyTaskGoal });
+    const settings = await db.updateSettings({ dailyTaskGoal });
     res.json({ success: true, data: settings });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -38,10 +38,10 @@ router.put('/settings', (req, res) => {
 });
 
 // GET hourly logs with filters
-router.get('/hourly', (req, res) => {
+router.get('/hourly', async (req, res) => {
   try {
     const { date, memberId, projectId, startDate, endDate } = req.query;
-    const logs = db.getHourlyLogs({ date, memberId, projectId, startDate, endDate });
+    const logs = await db.getHourlyLogs({ date, memberId, projectId, startDate, endDate });
     res.json({ success: true, count: logs.length, data: logs });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -49,11 +49,11 @@ router.get('/hourly', (req, res) => {
 });
 
 // GET hourly matrix for a specific date (all members vs 9 AM to 6 PM hours)
-router.get('/matrix', (req, res) => {
+router.get('/matrix', async (req, res) => {
   try {
     const date = req.query.date || new Date().toISOString().split('T')[0];
-    const members = db.getMembers(true);
-    const logs = db.getHourlyLogs({ date });
+    const members = await db.getMembers(true);
+    const logs = await db.getHourlyLogs({ date });
 
     // Collect any extra custom hours
     const customHours = new Set();
@@ -104,7 +104,7 @@ router.get('/matrix', (req, res) => {
 });
 
 // POST create or upsert hourly task log
-router.post('/hourly', (req, res) => {
+router.post('/hourly', async (req, res) => {
   try {
     const { memberId, projectId, projectName, date, hourSlot, taskCount, notes, status } = req.body;
 
@@ -115,7 +115,7 @@ router.post('/hourly', (req, res) => {
       });
     }
 
-    const log = db.createOrUpdateHourlyLog({
+    const log = await db.createOrUpdateHourlyLog({
       memberId,
       projectId,
       projectName,
@@ -133,9 +133,9 @@ router.post('/hourly', (req, res) => {
 });
 
 // PUT edit existing hourly log
-router.put('/hourly/:id', (req, res) => {
+router.put('/hourly/:id', async (req, res) => {
   try {
-    const updated = db.updateHourlyLog(req.params.id, req.body);
+    const updated = await db.updateHourlyLog(req.params.id, req.body);
     if (!updated) {
       return res.status(404).json({ success: false, error: 'Hourly log not found' });
     }
@@ -146,9 +146,9 @@ router.put('/hourly/:id', (req, res) => {
 });
 
 // DELETE hourly log
-router.delete('/hourly/:id', (req, res) => {
+router.delete('/hourly/:id', async (req, res) => {
   try {
-    const deleted = db.deleteHourlyLog(req.params.id);
+    const deleted = await db.deleteHourlyLog(req.params.id);
     if (!deleted) {
       return res.status(404).json({ success: false, error: 'Hourly log not found' });
     }
@@ -159,10 +159,10 @@ router.delete('/hourly/:id', (req, res) => {
 });
 
 // GET daily summary aggregated report
-router.get('/daily-summary', (req, res) => {
+router.get('/daily-summary', async (req, res) => {
   try {
     const { date, startDate, endDate, memberId } = req.query;
-    const summaries = db.getDailySummary({ date, startDate, endDate, memberId });
+    const summaries = await db.getDailySummary({ date, startDate, endDate, memberId });
     res.json({ success: true, count: summaries.length, data: summaries });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -170,10 +170,10 @@ router.get('/daily-summary', (req, res) => {
 });
 
 // GET admin dashboard overview
-router.get('/admin-overview', (req, res) => {
+router.get('/admin-overview', async (req, res) => {
   try {
     const { date, startDate, endDate } = req.query;
-    const overview = db.getAdminOverview({ date, startDate, endDate });
+    const overview = await db.getAdminOverview({ date, startDate, endDate });
     res.json({ success: true, data: overview });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -181,13 +181,13 @@ router.get('/admin-overview', (req, res) => {
 });
 
 // GET export reports to CSV
-router.get('/export-csv', (req, res) => {
+router.get('/export-csv', async (req, res) => {
   try {
     const { type, date, startDate, endDate } = req.query;
     const isDaily = type === 'daily';
 
     if (isDaily) {
-      const summaries = db.getDailySummary({ date, startDate, endDate });
+      const summaries = await db.getDailySummary({ date, startDate, endDate });
       let csv = 'Date,Member Name,Member Role,Total Tasks,Hours Worked,Avg Tasks/Hour,Projects Breakdown\n';
       summaries.forEach(s => {
         const projBreakdownStr = s.projectsList.map(p => `${p.projectName} (${p.tasks} tasks)`).join('; ');
@@ -198,7 +198,7 @@ router.get('/export-csv', (req, res) => {
       res.setHeader('Content-Disposition', `attachment; filename=lionix-daily-workreport-${date || 'all'}.csv`);
       return res.send(csv);
     } else {
-      const logs = db.getHourlyLogs({ date, startDate, endDate });
+      const logs = await db.getHourlyLogs({ date, startDate, endDate });
       let csv = 'Log ID,Date,Hour Slot,Member Name,Project Name,Task Count,Status,Notes\n';
       logs.forEach(l => {
         const safeNotes = (l.notes || '').replace(/"/g, '""');
