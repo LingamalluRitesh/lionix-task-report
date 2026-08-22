@@ -4,7 +4,17 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DB_FILE = path.join(__dirname, 'data.json');
+
+const DB_DIR = process.env.DATA_DIR || path.join(__dirname);
+try {
+  if (!fs.existsSync(DB_DIR)) {
+    fs.mkdirSync(DB_DIR, { recursive: true });
+  }
+} catch (err) {
+  console.error('Failed to create DB directory:', err);
+}
+
+const DB_FILE = path.join(DB_DIR, 'data.json');
 
 const DEFAULT_EMPLOYEE_PASSWORD = 'Lionixllp';
 
