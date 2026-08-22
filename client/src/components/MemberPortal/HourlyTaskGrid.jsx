@@ -57,7 +57,7 @@ export const HourlyTaskGrid = ({
           id: log.id,
           projectId: log.projectId || (projects[0]?.id || ''),
           projectName: log.projectName || (projects[0]?.name || ''),
-          taskCount: log.taskCount || 0,
+          taskCount: log.taskCount !== undefined ? log.taskCount : 0,
           notes: log.notes || '',
           status: log.status || 'Completed',
           isDirty: false,
@@ -106,13 +106,10 @@ export const HourlyTaskGrid = ({
       return;
     }
 
+    // Keep exact task count as 0 if left empty or unfilled
     let finalCount = parseInt(data.taskCount, 10);
     if (isNaN(finalCount) || finalCount < 0) {
       finalCount = 0;
-    }
-
-    if (finalCount === 0 && data.notes && data.notes.trim().length > 0) {
-      finalCount = 1;
     }
 
     setSavingSlot(slot);
@@ -191,7 +188,7 @@ export const HourlyTaskGrid = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Select your assigned project, enter completed tasks count, and add task details.
+                Enter your task count and describe your work details side by side for each hour.
               </p>
             </div>
           </div>
@@ -310,10 +307,10 @@ export const HourlyTaskGrid = ({
                   </div>
                 </div>
 
-                {/* 3. Tasks Completed Input (2 cols) */}
+                {/* 3. Number of Tasks Completed Input (2 cols) */}
                 <div className="lg:col-span-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1 lg:hidden">
-                    Tasks Completed
+                    No. of Tasks
                   </label>
                   <div className="relative">
                     <input
@@ -334,22 +331,22 @@ export const HourlyTaskGrid = ({
                   </div>
                 </div>
 
-                {/* 4. Work Details / Text Description Input (3 cols) */}
+                {/* 4. Task Description / Work Info (3 cols) */}
                 <div className="lg:col-span-3">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1 lg:hidden">
-                    Work Description / Notes
+                    Work Info / Description
                   </label>
                   <input
                     type="text"
                     disabled={!hasProjects}
-                    placeholder="Task details / description..."
+                    placeholder="Enter work details / description..."
                     value={entry.notes || ''}
                     onChange={(e) => handleFieldChange(slot, 'notes', e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-2xl px-3.5 py-2.5 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none hover:border-slate-300 transition-all shadow-xs disabled:bg-slate-100 disabled:cursor-not-allowed font-medium"
                   />
                 </div>
 
-                {/* 5. Status & Actions (2 cols) */}
+                {/* 5. Done Status & Save Action (2 cols) */}
                 <div className="lg:col-span-2 flex items-center justify-end gap-1.5">
                   <select
                     value={entry.status || 'Completed'}

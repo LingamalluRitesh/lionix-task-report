@@ -1,18 +1,32 @@
 import React, { useState } from 'react';
 import { 
   Clock, 
-  Search, 
+  Calendar, 
   Download, 
   Edit3, 
   Trash2, 
-  Calendar, 
-  FileSpreadsheet,
+  Plus, 
+  Eye, 
+  CheckCircle2,
+  Table as TableIcon,
   RefreshCw,
-  Plus
+  FileText
 } from 'lucide-react';
 
+const STANDARD_HOURS = [
+  '09:00 AM - 10:00 AM',
+  '10:00 AM - 11:00 AM',
+  '11:00 AM - 12:00 PM',
+  '12:00 PM - 01:00 PM',
+  '01:00 PM - 02:00 PM',
+  '02:00 PM - 03:00 PM',
+  '03:00 PM - 04:00 PM',
+  '04:00 PM - 05:00 PM',
+  '05:00 PM - 06:00 PM'
+];
+
 export const HourlyWorkReport = ({
-  matrixData = {},
+  matrixData = { allHours: [], matrix: [] },
   hourlyLogs = [],
   members = [],
   projects = [],
@@ -25,68 +39,85 @@ export const HourlyWorkReport = ({
   onExportCsv
 }) => {
   const [viewMode, setViewMode] = useState('matrix'); // 'matrix' | 'table'
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterMember, setFilterMember] = useState('all');
-  const [filterProject, setFilterProject] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('all');
+  const [selectedMemberFilter, setSelectedMemberFilter] = useState('');
+  const [selectedProjectFilter, setSelectedProjectFilter] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const { allHours = [], matrix = [] } = matrixData;
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await onRefresh();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
-  const filteredLogs = hourlyLogs.filter(log => {
-    const matchesSearch = 
-      (log.notes && log.notes.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (log.projectName && log.projectName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (log.memberName && log.memberName.toLowerCase().includes(searchQuery.toLowerCase()));
-
-    const matchesMember = filterMember === 'all' || log.memberId === filterMember;
-    const matchesProject = filterProject === 'all' || log.projectId === filterProject;
-    const matchesStatus = filterStatus === 'all' || log.status === filterStatus;
-
-    return matchesSearch && matchesMember && matchesProject && matchesStatus;
+  const allHours = matrixData.allHours?.length > 0 ? matrixData.allHours : STANDARD_HOURS;
+  
+  // Filter Matrix
+  const matrix = (matrixData.matrix || []).filter(row => {
+    if (selectedMemberFilter && row.member.id !== selectedMemberFilter) return false;
+    return true;
   });
 
-  const totalTasks = hourlyLogs.reduce((acc, l) => acc + (Number(l.taskCount) || 0), 0);
+  // Filter Detailed Table
+  const filteredLogs = hourlyLogs.filter(log => {
+    if (selectedMemberFilter && log.memberId !== selectedMemberFilter) return false;
+    if (selectedProjectFilter && log.projectId !== selectedProjectFilter) return false;
+    return true;
+  });
 
   return (
     <div className="space-y-6">
-      {/* Header & Controls Toolbar */}
+      {/* Header Bar */}
       <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <Clock className="w-5 h-5 text-sky-600" />
-              <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">Hourly Work Report</h2>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-xs">
+              <Clock className="w-5 h-5" />
             </div>
-            <p className="text-xs text-slate-500 mt-1">
-              Hourly breakdown for every team member. Click any cell to edit task counts or project assignment.
-            </p>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">Hourly Work Matrix &amp; Task Logs</h2>
+                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-mono">
+                  9:00 AM – 6:00 PM
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Displays exact task counts and work info descriptions side by side across all employee sessions.
+              </p>
+            </div>
           </div>
 
-          {/* Action Tools */}
-          <div className="flex items-center gap-3 flex-wrap">
-            {/* View Mode Toggle */}
-            <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200">
+          {/* Controls & Filters */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* View Switcher */}
+            <div className="flex items-center p-1 bg-slate-100 rounded-2xl border border-slate-200/60">
               <button
+                type="button"
                 onClick={() => setViewMode('matrix')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  viewMode === 'matrix' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  viewMode === 'matrix' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
                 }`}
               >
-                Matrix View
+                <TableIcon className="w-3.5 h-3.5" />
+                <span>Matrix View</span>
               </button>
               <button
+                type="button"
                 onClick={() => setViewMode('table')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  viewMode === 'table' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  viewMode === 'table' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
                 }`}
               >
-                Detailed Log Table
+                <Eye className="w-3.5 h-3.5" />
+                <span>Logs Table</span>
               </button>
             </div>
 
             {/* Date Picker */}
             <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-2xl px-3 py-1.5 shadow-xs">
-              <Calendar className="w-4 h-4 text-sky-600" />
+              <Calendar className="w-4 h-4 text-amber-600" />
               <input
                 type="date"
                 value={selectedDate}
@@ -95,110 +126,70 @@ export const HourlyWorkReport = ({
               />
             </div>
 
-            {/* Export CSV */}
-            <button
-              onClick={() => onExportCsv('hourly')}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200 transition-colors shadow-xs"
-              title="Download CSV"
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>Export CSV</span>
-            </button>
-
-            {/* Refresh */}
-            <button
-              onClick={onRefresh}
-              className="p-2 rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 transition-colors"
-              title="Refresh Report"
-            >
-              <RefreshCw className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Filter Bar for Table View */}
-        {viewMode === 'table' && (
-          <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search notes, projects, members..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:outline-none"
-              />
-            </div>
-
+            {/* Member Filter */}
             <select
-              value={filterMember}
-              onChange={(e) => setFilterMember(e.target.value)}
-              className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:outline-none font-medium"
+              value={selectedMemberFilter}
+              onChange={(e) => setSelectedMemberFilter(e.target.value)}
+              className="bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2 text-xs font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none cursor-pointer"
             >
-              <option value="all">All Team Members</option>
+              <option value="">All 15 Members</option>
               {members.map(m => (
                 <option key={m.id} value={m.id}>{m.name}</option>
               ))}
             </select>
 
-            <select
-              value={filterProject}
-              onChange={(e) => setFilterProject(e.target.value)}
-              className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:outline-none font-medium"
+            {/* Refresh Button */}
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl text-slate-700 transition-all cursor-pointer shadow-xs"
+              title="Refresh Data"
             >
-              <option value="all">All Projects</option>
-              {projects.map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-amber-600' : ''}`} />
+            </button>
 
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:outline-none font-medium"
+            {/* Export CSV */}
+            <button
+              type="button"
+              onClick={() => onExportCsv('hourly')}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold shadow-md shadow-amber-500/25 transition-all cursor-pointer"
             >
-              <option value="all">All Statuses</option>
-              <option value="Completed">Completed</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Blocked">Blocked</option>
-            </select>
+              <Download className="w-3.5 h-3.5" />
+              <span>Export CSV</span>
+            </button>
           </div>
-        )}
+        </div>
       </div>
 
       {/* MATRIX VIEW */}
       {viewMode === 'matrix' && (
         <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm">
-          <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-4 border-b border-slate-100 gap-2">
             <div>
-              <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-                <span>Team Hourly Matrix Grid — {selectedDate}</span>
-                <span className="px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-700 text-xs border border-sky-200 font-mono font-bold">
-                  {totalTasks} total tasks
-                </span>
-              </h3>
+              <h3 className="text-sm font-extrabold text-slate-900">9:00 AM – 6:00 PM Team Hourly Work Matrix</h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Click any cell to edit task counts or assign projects directly.
+                Displays task counts &amp; work description text side by side. Click any cell to inspect or edit.
               </p>
             </div>
             <div className="flex items-center gap-2 text-xs text-slate-500">
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-slate-100 border border-slate-200"></span> None</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-sky-100 border border-sky-300"></span> 1-3 tasks</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-300"></span> 4+ tasks</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-50 border border-amber-300"></span> Info Logged</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-300"></span> Tasks Done</span>
             </div>
           </div>
 
           <div className="overflow-x-auto pb-2">
-            <table className="w-full text-left border-collapse min-w-[900px]">
+            <table className="w-full text-left border-collapse min-w-[1050px]">
               <thead>
                 <tr className="border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  <th className="py-3 px-3 sticky left-0 bg-white z-10 w-48 shadow-r">Team Member</th>
+                  <th className="py-3 px-3 sticky left-0 bg-white z-10 w-52 shadow-r">Team Member</th>
                   {allHours.map(hour => (
-                    <th key={hour} className="py-3 px-2 text-center font-mono whitespace-nowrap min-w-[72px]">
+                    <th key={hour} className="py-3 px-2 text-center font-mono whitespace-nowrap min-w-[105px]">
                       {hour.split(' - ')[0]}
                     </th>
                   ))}
-                  <th className="py-3 px-3 text-right font-mono sticky right-0 bg-white z-10">Total Tasks</th>
+                  <th className="py-3 px-3 text-right font-mono sticky right-0 bg-white z-10 w-28">Total Tasks</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
@@ -221,17 +212,15 @@ export const HourlyWorkReport = ({
                         </div>
                       </td>
 
-                      {/* Hourly Cells */}
+                      {/* Hourly Cells (Shows Task Count AND Work Info side-by-side) */}
                       {allHours.map(hour => {
                         const log = row.hours[hour];
                         const tasks = log ? Number(log.taskCount) || 0 : 0;
                         const hasNotes = Boolean(log && log.notes && log.notes.trim().length > 0);
                         
                         let cellClass = 'bg-slate-50 text-slate-400 border-slate-200 hover:border-slate-300 hover:bg-slate-100';
-                        if (tasks >= 4) {
-                          cellClass = 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100 font-bold';
-                        } else if (tasks > 0) {
-                          cellClass = 'bg-sky-50 text-sky-800 border-sky-200 hover:bg-sky-100 font-bold';
+                        if (tasks > 0) {
+                          cellClass = 'bg-emerald-50 text-emerald-900 border-emerald-200 hover:bg-emerald-100 font-bold';
                         } else if (hasNotes) {
                           cellClass = 'bg-amber-50 text-amber-900 border-amber-200 hover:bg-amber-100 font-medium';
                         }
@@ -247,15 +236,26 @@ export const HourlyWorkReport = ({
                                   onAddNewLog(row.member.id, hour);
                                 }
                               }}
-                              className={`w-full py-2 px-1 rounded-xl border text-center font-mono transition-all group relative cursor-pointer shadow-xs ${cellClass}`}
+                              className={`w-full py-2 px-1.5 rounded-xl border text-center transition-all group relative cursor-pointer shadow-xs ${cellClass}`}
                               title={log ? `${log.projectName}: ${log.taskCount} tasks. ${log.notes || ''} (Click to edit)` : `No log for ${hour} (Click to add)`}
                             >
                               {log ? (
-                                <div className="flex flex-col items-center justify-center overflow-hidden">
-                                  <span className="text-xs">{tasks > 0 ? tasks : '📝'}</span>
-                                  <span className="text-[9px] font-medium truncate max-w-[58px] opacity-80" title={log.notes || log.projectName}>
-                                    {log.notes ? log.notes : (log.projectName ? log.projectName.split(' ')[0] : 'Done')}
-                                  </span>
+                                <div className="flex flex-col items-center justify-center overflow-hidden gap-0.5">
+                                  {/* Task Count Badge */}
+                                  <div className="flex items-center gap-1 font-mono">
+                                    <span className="text-xs font-black">{tasks}</span>
+                                    <span className="text-[9px] font-bold opacity-75">tasks</span>
+                                  </div>
+                                  {/* Work Description / Notes beside/below */}
+                                  {log.notes ? (
+                                    <span className="text-[9px] font-medium text-slate-700 bg-white/80 px-1 py-0.5 rounded border border-slate-200/60 truncate max-w-[95px] block" title={log.notes}>
+                                      {log.notes}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[9px] font-medium text-slate-400 opacity-80 truncate max-w-[85px]">
+                                      {log.projectName ? log.projectName.split(' ')[0] : 'Done'}
+                                    </span>
+                                  )}
                                 </div>
                               ) : (
                                 <span className="text-slate-300 group-hover:text-slate-500 text-xs">-</span>
@@ -266,7 +266,7 @@ export const HourlyWorkReport = ({
                       })}
 
                       {/* Total Tasks Column */}
-                      <td className="py-3 px-3 text-right font-mono font-extrabold text-sky-600 sticky right-0 bg-white/95 z-10 border-l border-slate-100 text-sm">
+                      <td className="py-3 px-3 text-right font-mono font-extrabold text-amber-600 sticky right-0 bg-white/95 z-10 border-l border-slate-100 text-sm">
                         {row.totalTasks}
                         <span className="text-[10px] text-slate-400 block font-normal font-sans">
                           {row.hoursWorked} hrs
@@ -287,48 +287,45 @@ export const HourlyWorkReport = ({
         </div>
       )}
 
-      {/* DETAILED TABLE VIEW */}
+      {/* DETAILED LOGS TABLE VIEW */}
       {viewMode === 'table' && (
         <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm">
-          <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-4 border-b border-slate-100 gap-2">
             <div>
-              <h3 className="text-sm font-extrabold text-slate-900">
-                Detailed Hourly Task Entries ({filteredLogs.length})
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">Filter, search, edit, or delete any record.</p>
+              <h3 className="text-sm font-extrabold text-slate-900">Detailed Hourly Log Records</h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Every logged time session, assigned project, task count, and work description text.
+              </p>
             </div>
-            <button
-              onClick={() => onExportCsv('hourly')}
-              className="text-xs text-sky-600 hover:text-sky-700 font-bold flex items-center gap-1"
-            >
-              <Download className="w-3.5 h-3.5" /> Download CSV
-            </button>
+            <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">
+              Total Logs: {filteredLogs.length}
+            </span>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <tr className="border-b border-slate-100 text-slate-400 uppercase text-[10px] font-extrabold tracking-wider">
                   <th className="pb-3 pl-2">Time Slot</th>
                   <th className="pb-3">Team Member</th>
-                  <th className="pb-3">Project Name</th>
-                  <th className="pb-3 text-center">Tasks Done</th>
+                  <th className="pb-3">Project</th>
+                  <th className="pb-3 text-center">No. of Tasks</th>
+                  <th className="pb-3">Work Info / Description</th>
                   <th className="pb-3">Status</th>
-                  <th className="pb-3">Work Notes</th>
-                  <th className="pb-3 text-right pr-2">Actions</th>
+                  <th className="pb-3 pr-2 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-xs">
+              <tbody className="divide-y divide-slate-100">
                 {filteredLogs.length > 0 ? (
                   filteredLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-3.5 pl-2 font-mono font-bold text-slate-700">
+                    <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3.5 pl-2 font-mono font-extrabold text-slate-800">
                         {log.hourSlot}
                       </td>
                       <td className="py-3.5">
                         <div className="flex items-center gap-2">
                           <span
-                            className="w-2 h-2 rounded-full"
+                            className="w-2.5 h-2.5 rounded-full shrink-0"
                             style={{ backgroundColor: log.memberColor || '#0284c7' }}
                           ></span>
                           <span className="font-bold text-slate-900">{log.memberName}</span>
@@ -340,8 +337,17 @@ export const HourlyWorkReport = ({
                           {log.projectName}
                         </span>
                       </td>
-                      <td className="py-3.5 text-center font-mono font-extrabold text-sky-600 text-sm">
+                      <td className="py-3.5 text-center font-mono font-extrabold text-amber-600 text-sm">
                         {log.taskCount}
+                      </td>
+                      <td className="py-3.5 text-slate-700 max-w-sm">
+                        {log.notes ? (
+                          <span className="font-medium bg-slate-50 px-2 py-1 rounded-lg border border-slate-200/60 inline-block">
+                            {log.notes}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 italic">No description</span>
+                        )}
                       </td>
                       <td className="py-3.5">
                         <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
@@ -354,15 +360,12 @@ export const HourlyWorkReport = ({
                           {log.status || 'Completed'}
                         </span>
                       </td>
-                      <td className="py-3.5 text-slate-600 max-w-xs truncate">
-                        {log.notes || <span className="text-slate-400 italic">No notes</span>}
-                      </td>
                       <td className="py-3.5 text-right pr-2">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"
                             onClick={() => onEditLog(log)}
-                            className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-sky-700 transition-colors shadow-xs"
+                            className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-amber-700 transition-colors shadow-xs cursor-pointer"
                             title="Edit task log"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
@@ -370,7 +373,7 @@ export const HourlyWorkReport = ({
                           <button
                             type="button"
                             onClick={() => onDeleteLog(log.id)}
-                            className="p-1.5 rounded-xl bg-slate-100 hover:bg-rose-50 text-rose-600 transition-colors shadow-xs"
+                            className="p-1.5 rounded-xl bg-slate-100 hover:bg-rose-50 text-rose-600 transition-colors shadow-xs cursor-pointer"
                             title="Delete task log"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
