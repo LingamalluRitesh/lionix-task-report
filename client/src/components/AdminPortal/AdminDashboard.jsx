@@ -32,11 +32,12 @@ export const AdminDashboard = ({
   overview = {}, 
   selectedDate, 
   onDateChange,
-  onNavigateTab 
+  onNavigateTab,
+  onRefresh
 }) => {
   const { addToast } = useToast();
   const {
-    dailyTaskGoal: initialGoal = 20,
+    dailyTaskGoal: initialGoal = 100,
     totalTasksToday = 0,
     totalMembers = 0,
     activeMembersCount = 0,
@@ -75,11 +76,18 @@ export const AdminDashboard = ({
     const num = Math.min(2999, Math.max(1, rawNum));
     setIsSavingGoal(true);
     try {
-      await api.updateSettings({ dailyTaskGoal: num });
-      setGoalInput(num);
+      const res = await api.updateSettings({ dailyTaskGoal: num });
+      if (res?.data?.dailyTaskGoal) {
+        setGoalInput(res.data.dailyTaskGoal);
+      } else {
+        setGoalInput(num);
+      }
       setGoalSaved(true);
       addToast(`Daily Task Goal set to ${num} tasks/day (< 3,000)`, 'success');
       setTimeout(() => setGoalSaved(false), 3000);
+      if (onRefresh) {
+        await onRefresh();
+      }
     } catch (err) {
       addToast('Failed to update daily task goal', 'error');
     } finally {
@@ -87,7 +95,7 @@ export const AdminDashboard = ({
     }
   };
 
-  const currentGoalNum = Math.min(2999, Math.max(1, parseInt(goalInput, 10) || 20));
+  const currentGoalNum = Math.min(2999, Math.max(1, parseInt(goalInput, 10) || 100));
   const expectedTeamGoal = (activeMembersCount || totalMembers || 1) * currentGoalNum;
   const goalPercent = Math.min(100, Math.round((totalTasksToday / (expectedTeamGoal || 1)) * 100));
 
@@ -139,7 +147,7 @@ export const AdminDashboard = ({
               </span>
             </div>
             <h3 className="text-xl font-black">
-              Standard Daily Goal: {goalInput} Tasks / Member
+              Standard Daily Goal: {currentGoalNum} Tasks / Member
             </h3>
             <p className="text-xs text-amber-100/90 leading-relaxed">
               Target for each employee across the 9:00 AM – 6:00 PM workday (valid range: 1 to 2,999 tasks).
@@ -157,7 +165,7 @@ export const AdminDashboard = ({
                 value={goalInput}
                 onChange={(e) => setGoalInput(e.target.value)}
                 placeholder="1-2999"
-                className="w-20 px-2.5 py-1 text-center bg-white text-slate-900 text-sm font-extrabold rounded-xl focus:ring-2 focus:ring-amber-300 focus:outline-none font-mono"
+                className="w-24 px-2.5 py-1 text-center bg-white text-slate-900 text-sm font-extrabold rounded-xl focus:ring-2 focus:ring-amber-300 focus:outline-none font-mono"
               />
               <span className="text-xs text-amber-100 font-bold">tasks</span>
             </div>
@@ -381,7 +389,7 @@ export const AdminDashboard = ({
             <tbody className="divide-y divide-slate-100">
               {memberLeaderboard.length > 0 ? (
                 memberLeaderboard.map((mem, index) => {
-                  const targetGoal = Math.min(2999, parseInt(goalInput, 10) || 20);
+                  const targetGoal = currentGoalNum;
                   const isGoalMet = mem.totalTasks >= targetGoal;
                   return (
                     <tr key={mem.id} className="hover:bg-slate-50/80 transition-colors">

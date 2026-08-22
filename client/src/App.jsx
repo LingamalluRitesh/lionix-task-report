@@ -50,7 +50,7 @@ const MainApp = () => {
   // Master Data & Global Settings
   const [members, setMembers] = useState([]);
   const [projects, setProjects] = useState([]);
-  const [dailyTaskGoal, setDailyTaskGoal] = useState(20);
+  const [dailyTaskGoal, setDailyTaskGoal] = useState(100);
   const [loading, setLoading] = useState(true);
 
   // Selected Date
@@ -410,6 +410,7 @@ const MainApp = () => {
                 selectedDate={selectedDate}
                 onDateChange={setSelectedDate}
                 onNavigateTab={setCurrentAdminTab}
+                onRefresh={fetchAdminData}
               />
             )}
 
