@@ -145,8 +145,9 @@ class Database {
     await this.pool.query(`
       INSERT INTO admin_users (id, name, email, password, role, department, avatar_color)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
-      ON CONFLICT (email) DO UPDATE SET
+      ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name,
+        email = EXCLUDED.email,
         password = EXCLUDED.password,
         role = EXCLUDED.role,
         department = EXCLUDED.department,
@@ -189,8 +190,9 @@ class Database {
         await this.pool.query(`
           INSERT INTO members (id, name, email, password, role, department, avatar_color, active)
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-          ON CONFLICT (email) DO UPDATE SET
+          ON CONFLICT (id) DO UPDATE SET
             name = EXCLUDED.name,
+            email = EXCLUDED.email,
             role = EXCLUDED.role,
             department = EXCLUDED.department,
             avatar_color = EXCLUDED.avatar_color,
