@@ -27,6 +27,7 @@ import {
   ResponsiveContainer, 
   Cell
 } from 'recharts';
+import { isTaskCountRequired } from '../../utils/projectUtils.js';
 
 export const AdminDashboard = ({ 
   overview = {}, 
@@ -317,6 +318,7 @@ export const AdminDashboard = ({
             <div className="space-y-3">
               {projectDistribution.length > 0 ? (
                 projectDistribution.map((item) => {
+                  const isNumeric = isTaskCountRequired(item.name);
                   const pct = totalTasksToday > 0 ? Math.round((item.tasks / totalTasksToday) * 100) : 0;
                   return (
                     <div key={item.name} className="space-y-1.5">
@@ -326,14 +328,14 @@ export const AdminDashboard = ({
                           {item.name}
                         </span>
                         <span className="text-slate-500 font-mono">
-                          {item.tasks} tasks ({pct}%)
+                          {isNumeric ? `${item.tasks} tasks (${pct}%)` : (item.tasks > 0 ? `${item.tasks} tasks` : 'Work Logged')}
                         </span>
                       </div>
                       <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-500"
                           style={{
-                            width: `${pct}%`,
+                            width: isNumeric ? `${pct}%` : '100%',
                             backgroundColor: item.color || '#f59e0b'
                           }}
                         />

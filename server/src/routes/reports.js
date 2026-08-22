@@ -180,6 +180,13 @@ router.get('/admin-overview', async (req, res) => {
   }
 });
 
+// Helper to check if project requires numeric task counts
+const isTaskCountRequired = (name) => {
+  if (!name) return false;
+  const lower = name.toLowerCase();
+  return lower.includes('annotation') || lower.includes('infography') || lower.includes('infographic');
+};
+
 // GET export reports to CSV
 router.get('/export-csv', async (req, res) => {
   try {
@@ -190,7 +197,10 @@ router.get('/export-csv', async (req, res) => {
       const summaries = await db.getDailySummary({ date, startDate, endDate });
       let csv = 'Date,Member Name,Member Role,Total Tasks,Hours Worked,Avg Tasks/Hour,Projects Breakdown\n';
       summaries.forEach(s => {
-        const projBreakdownStr = s.projectsList.map(p => `${p.projectName} (${p.tasks} tasks)`).join('; ');
+        const projBreakdownStr = s.projectsList.map(p => {
+          const isNum = isTaskCountRequired(p.projectName);
+          return isNum ? `${p.projectName} (${p.tasks} tasks)` : `${p.projectName} (${p.hours || 1}h logged)`;
+        }).join('; ');
         csv += `"${s.date}","${s.memberName}","${s.memberRole}",${s.totalTasks},${s.hoursWorked},${s.avgTasksPerHour},"${projBreakdownStr}"\n`;
       });
 
@@ -199,10 +209,12 @@ router.get('/export-csv', async (req, res) => {
       return res.send(csv);
     } else {
       const logs = await db.getHourlyLogs({ date, startDate, endDate });
-      let csv = 'Log ID,Date,Hour Slot,Member Name,Project Name,Task Count,Status,Notes\n';
+      let csv = 'Log ID,Date,Hour Slot,Member Name,Project Name,Task Count,Status,Task Details / Work Notes\n';
       logs.forEach(l => {
         const safeNotes = (l.notes || '').replace(/"/g, '""');
-        csv += `"${l.id}","${l.date}","${l.hourSlot}","${l.memberName}","${l.projectName}",${l.taskCount},"${l.status}","${safeNotes}"\n`;
+        const isNum = isTaskCountRequired(l.projectName);
+        const taskDisplay = isNum ? l.taskCount : 'N/A (Message)';
+        csv += `"${l.id}","${l.date}","${l.hourSlot}","${l.memberName}","${l.projectName}",${taskDisplay},"${l.status}","${safeNotes}"\n`;
       });
 
       res.setHeader('Content-Type', 'text/csv');

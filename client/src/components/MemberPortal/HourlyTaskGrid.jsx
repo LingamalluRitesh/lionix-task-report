@@ -8,8 +8,11 @@ import {
   FolderKanban, 
   Check,
   ListTodo,
-  Target
+  Target,
+  MessageSquare,
+  Hash
 } from 'lucide-react';
+import { isTaskCountRequired } from '../../utils/projectUtils.js';
 
 const STANDARD_HOURS = [
   '09:00 AM - 10:00 AM',
@@ -88,7 +91,13 @@ export const HourlyTaskGrid = ({
 
       if (field === 'projectId') {
         const proj = projects.find(p => p.id === value);
-        if (proj) updated.projectName = proj.name;
+        if (proj) {
+          updated.projectName = proj.name;
+          // If switching to a project that doesn't need task count, reset count to 0
+          if (!isTaskCountRequired(proj.name)) {
+            updated.taskCount = 0;
+          }
+        }
       }
 
       return {
@@ -106,6 +115,8 @@ export const HourlyTaskGrid = ({
       return;
     }
 
+    const needsTaskCount = isTaskCountRequired(data.projectName);
+
     setSavingSlot(slot);
     try {
       await onSaveLog({
@@ -115,7 +126,7 @@ export const HourlyTaskGrid = ({
         hourSlot: slot,
         projectId: data.projectId || projects[0]?.id,
         projectName: data.projectName || projects[0]?.name,
-        taskCount: parseInt(data.taskCount, 10) || 0,
+        taskCount: needsTaskCount ? (parseInt(data.taskCount, 10) || 0) : 0,
         notes: data.notes || '',
         status: data.status || 'Completed'
       });
@@ -183,7 +194,7 @@ export const HourlyTaskGrid = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Select your assigned project, enter the number of tasks completed, and add work notes.
+                <strong>Data Annotation & Infography</strong> require numeric task counts. Other projects log normal work messages & task details.
               </p>
             </div>
           </div>
@@ -236,6 +247,7 @@ export const HourlyTaskGrid = ({
           const isSaved = entry.isSaved && !entry.isDirty && entry.id;
           const isDirty = entry.isDirty;
           const isSaving = savingSlot === slot;
+          const requiresTasks = isTaskCountRequired(entry.projectName);
 
           return (
             <div
@@ -291,7 +303,7 @@ export const HourlyTaskGrid = ({
                       {hasProjects ? (
                         projects.map(proj => (
                           <option key={proj.id} value={proj.id}>
-                            {proj.name} ({proj.code || 'PROJ'})
+                            {proj.name} ({isTaskCountRequired(proj.name) ? 'Task Count' : 'Work Notes'})
                           </option>
                         ))
                       ) : (
@@ -302,40 +314,63 @@ export const HourlyTaskGrid = ({
                   </div>
                 </div>
 
-                {/* 3. Number of Tasks Normal Input (Direct Entry) */}
-                <div className="lg:col-span-2">
-                  <label className="text-[11px] font-bold text-slate-500 block mb-1 lg:hidden">Tasks Completed</label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min="0"
-                      disabled={!hasProjects}
-                      placeholder="0"
-                      value={entry.taskCount === 0 ? '' : entry.taskCount}
-                      onChange={(e) => {
-                        const val = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0);
-                        handleFieldChange(slot, 'taskCount', val);
-                      }}
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs font-extrabold rounded-2xl px-3.5 py-2.5 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none hover:border-slate-300 transition-all shadow-xs font-mono disabled:bg-slate-100 disabled:cursor-not-allowed"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 uppercase pointer-events-none">
-                      Tasks
-                    </span>
-                  </div>
-                </div>
+                {/* 3 & 4. Task Count vs Work Details (Adaptive based on Project) */}
+                {requiresTasks ? (
+                  <>
+                    {/* Number of Tasks Input (For Annotation & Infography) */}
+                    <div className="lg:col-span-2">
+                      <label className="text-[11px] font-bold text-slate-500 block mb-1 lg:hidden">Tasks Completed</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          disabled={!hasProjects}
+                          placeholder="0"
+                          value={entry.taskCount === 0 ? '' : entry.taskCount}
+                          onChange={(e) => {
+                            const val = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0);
+                            handleFieldChange(slot, 'taskCount', val);
+                          }}
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs font-extrabold rounded-2xl px-3.5 py-2.5 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none hover:border-slate-300 transition-all shadow-xs font-mono disabled:bg-slate-100 disabled:cursor-not-allowed"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 uppercase pointer-events-none">
+                          Tasks
+                        </span>
+                      </div>
+                    </div>
 
-                {/* 4. Notes & Work Description */}
-                <div className="lg:col-span-2">
-                  <label className="text-[11px] font-bold text-slate-500 block mb-1 lg:hidden">Task Details / Work Notes</label>
-                  <input
-                    type="text"
-                    disabled={!hasProjects}
-                    placeholder="e.g. Bug fixes, API endpoints..."
-                    value={entry.notes || ''}
-                    onChange={(e) => handleFieldChange(slot, 'notes', e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-2xl px-3.5 py-2.5 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none hover:border-slate-300 transition-all shadow-xs disabled:bg-slate-100 disabled:cursor-not-allowed"
-                  />
-                </div>
+                    {/* Task Details / Notes */}
+                    <div className="lg:col-span-2">
+                      <label className="text-[11px] font-bold text-slate-500 block mb-1 lg:hidden">Task Details / Notes</label>
+                      <input
+                        type="text"
+                        disabled={!hasProjects}
+                        placeholder="Task notes / details..."
+                        value={entry.notes || ''}
+                        onChange={(e) => handleFieldChange(slot, 'notes', e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-2xl px-3.5 py-2.5 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none hover:border-slate-300 transition-all shadow-xs disabled:bg-slate-100 disabled:cursor-not-allowed"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  /* Expanded Normal Message / Task Details for Other Projects */
+                  <div className="lg:col-span-4">
+                    <label className="text-[11px] font-bold text-slate-500 block mb-1 lg:hidden">Work Details / Message</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        disabled={!hasProjects}
+                        placeholder="Enter task details / work update (e.g. API implementation, bug fixes, testing)..."
+                        value={entry.notes || ''}
+                        onChange={(e) => handleFieldChange(slot, 'notes', e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-2xl px-3.5 py-2.5 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none hover:border-slate-300 transition-all shadow-xs disabled:bg-slate-100 disabled:cursor-not-allowed"
+                      />
+                      <span className="hidden sm:inline-flex items-center gap-1 absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-bold text-slate-400 uppercase pointer-events-none bg-slate-100 px-1.5 py-0.5 rounded">
+                        <MessageSquare className="w-2.5 h-2.5" /> Work Message
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 {/* 5. Status & Actions */}
                 <div className="lg:col-span-2 flex items-center justify-end gap-1.5 pt-2 lg:pt-0">
