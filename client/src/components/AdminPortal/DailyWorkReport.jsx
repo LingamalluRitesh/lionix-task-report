@@ -11,7 +11,8 @@ import {
   RefreshCw,
   FileText,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  FileCheck2
 } from 'lucide-react';
 import { StatCard } from '../UI/StatCard.jsx';
 
@@ -21,7 +22,8 @@ export const DailyWorkReport = ({
   selectedDate,
   onDateChange,
   onRefresh,
-  onExportCsv
+  onExportCsv,
+  onExportExcel
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterMember, setFilterMember] = useState('all');
@@ -83,18 +85,31 @@ export const DailyWorkReport = ({
               />
             </div>
 
-            {/* Export CSV Button */}
+            {/* Export Professional Excel (.xlsx) Button */}
             <button
-              onClick={() => onExportCsv('daily')}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-md shadow-emerald-600/25 transition-all cursor-pointer"
-              title="Download Daily CSV with Work Descriptions"
+              type="button"
+              onClick={onExportExcel}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-md shadow-emerald-600/25 transition-all cursor-pointer"
+              title="Download Fully Bordered & Styled Microsoft Excel (.xlsx) Report"
             >
               <FileSpreadsheet className="w-4 h-4" />
-              <span>Export Daily CSV</span>
+              <span>Export Excel (.xlsx)</span>
+            </button>
+
+            {/* Export CSV Button */}
+            <button
+              type="button"
+              onClick={() => onExportCsv('daily')}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold border border-slate-200 transition-all cursor-pointer shadow-xs"
+              title="Download Plain CSV"
+            >
+              <FileCheck2 className="w-3.5 h-3.5" />
+              <span>CSV</span>
             </button>
 
             {/* Refresh */}
             <button
+              type="button"
               onClick={onRefresh}
               className="p-2 rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 transition-colors cursor-pointer shadow-xs"
               title="Refresh Report"
@@ -167,10 +182,10 @@ export const DailyWorkReport = ({
             </p>
           </div>
           <button
-            onClick={() => onExportCsv('daily')}
+            onClick={onExportExcel}
             className="text-xs text-emerald-600 hover:text-emerald-700 font-bold flex items-center gap-1 cursor-pointer"
           >
-            <Download className="w-3.5 h-3.5" /> Download Daily CSV
+            <Download className="w-3.5 h-3.5" /> Export Excel (.xlsx)
           </button>
         </div>
 
@@ -191,9 +206,8 @@ export const DailyWorkReport = ({
             <tbody className="divide-y divide-slate-100 text-xs">
               {filteredSummaries.length > 0 ? (
                 filteredSummaries.map((summary) => {
-                  const tasksNum = Number(summary.totalTasks) || 0;
                   const isExpanded = expandedRow === summary.memberId;
-                  const notesList = (summary.logs || []).filter(l => l.notes && l.notes.trim().length > 0);
+                  const notesList = (summary.logs || []).filter(l => (l.notes && l.notes.trim().length > 0) || Number(l.taskCount) > 0);
 
                   return (
                     <React.Fragment key={summary.memberId}>
@@ -268,13 +282,14 @@ export const DailyWorkReport = ({
                               {notesList.slice(0, isExpanded ? notesList.length : 2).map((l, i) => (
                                 <div key={i} className="text-[11px] bg-slate-50 border border-slate-200/70 rounded-lg px-2 py-1 flex items-start gap-1.5 text-slate-700">
                                   <span className="font-mono font-extrabold text-amber-700 shrink-0 text-[10px]">
-                                    {l.hourSlot.split(' - ')[0]}:
+                                    {l.hourSlot ? l.hourSlot.split(' - ')[0] : 'Log'}:
                                   </span>
-                                  <span className="truncate">{l.notes}</span>
+                                  <span className="truncate">{l.notes || `${l.taskCount} tasks on ${l.projectName || 'General'}`}</span>
                                 </div>
                               ))}
                               {notesList.length > 2 && !isExpanded && (
                                 <button
+                                  type="button"
                                   onClick={() => toggleRowExpand(summary.memberId)}
                                   className="text-[10px] font-extrabold text-amber-600 hover:text-amber-700 cursor-pointer"
                                 >
@@ -290,6 +305,7 @@ export const DailyWorkReport = ({
                         {/* 8. Expand / Details Button */}
                         <td className="py-4 text-right pr-2">
                           <button
+                            type="button"
                             onClick={() => toggleRowExpand(summary.memberId)}
                             className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors shadow-2xs cursor-pointer"
                             title={isExpanded ? 'Collapse notes' : 'Expand all hourly notes'}

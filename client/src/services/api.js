@@ -31,7 +31,7 @@ export const api = {
   async getSettings() {
     const res = await fetch(`${API_BASE}/reports/settings`);
     const json = await res.json();
-    return json.data || { dailyTaskGoal: 20 };
+    return json.data || { dailyTaskGoal: 100 };
   },
 
   async updateSettings(settings) {
@@ -163,5 +163,10 @@ export const api = {
   getExportCsvUrl({ type = 'hourly', date = '', startDate = '', endDate = '' }) {
     const params = new URLSearchParams({ type, date, startDate, endDate });
     return `${API_BASE}/reports/export-csv?${params.toString()}`;
+  },
+
+  getExportExcelUrl({ date = '', startDate = '', endDate = '' }) {
+    const params = new URLSearchParams({ date, startDate, endDate });
+    return `${API_BASE}/reports/export-excel?${params.toString()}`;
   }
 };

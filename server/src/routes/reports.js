@@ -1,5 +1,6 @@
 import express from 'express';
 import { db } from '../db/database.js';
+import { generateProfessionalExcelReport } from '../utils/excelExporter.js';
 
 const router = express.Router();
 
@@ -180,6 +181,76 @@ router.get('/admin-overview', async (req, res) => {
   }
 });
 
+// GET export professional styled Microsoft Excel (.xlsx) report
+router.get('/export-excel', async (req, res) => {
+  try {
+    const { date, startDate, endDate } = req.query;
+    const targetDate = date || new Date().toISOString().split('T')[0];
+
+    const [summaries, members, logs] = await Promise.all([
+      db.getDailySummary({ date: targetDate, startDate, endDate }),
+      db.getMembers(true),
+      db.getHourlyLogs({ date: targetDate, startDate, endDate })
+    ]);
+
+    // Build matrix data for Sheet 2
+    const customHours = new Set();
+    logs.forEach(l => {
+      if (!STANDARD_HOURS.includes(l.hourSlot)) {
+        customHours.add(l.hourSlot);
+      }
+    });
+    const allHours = [...STANDARD_HOURS, ...Array.from(customHours).sort()];
+
+    const matrix = members.map(member => {
+      const memberLogs = logs.filter(l => l.memberId === member.id);
+      const hourMap = {};
+      let totalTasks = 0;
+      let hoursWorked = 0;
+
+      allHours.forEach(hour => {
+        const log = memberLogs.find(l => l.hourSlot === hour);
+        if (log) {
+          hourMap[hour] = log;
+          totalTasks += Number(log.taskCount) || 0;
+          hoursWorked += 1;
+        } else {
+          hourMap[hour] = null;
+        }
+      });
+
+      return {
+        member,
+        hours: hourMap,
+        totalTasks,
+        hoursWorked
+      };
+    });
+
+    const workbook = await generateProfessionalExcelReport({
+      date: targetDate,
+      summaries,
+      matrixData: { allHours, matrix },
+      hourlyLogs: logs
+    });
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=LionIX-Executive-WorkReport-${targetDate}.xlsx`
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error('Error generating Excel report:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // GET export reports to CSV
 router.get('/export-csv', async (req, res) => {
   try {
@@ -188,7 +259,7 @@ router.get('/export-csv', async (req, res) => {
 
     if (isDaily) {
       const summaries = await db.getDailySummary({ date, startDate, endDate });
-      let csv = 'Date,Member Name,Member Role,Total Tasks,Hours Worked,Avg Tasks/Hour,Projects Breakdown,Work Description / Task Details\n';
+      let csv = 'Date,Member Name,Member Role,Department,Total Tasks,Hours Worked,Avg Tasks/Hour,Projects Breakdown,Work Description / Task Details\n';
       summaries.forEach(s => {
         const projBreakdownStr = s.projectsList.map(p => `${p.projectName} (${p.tasks} tasks)`).join('; ');
         
@@ -205,7 +276,7 @@ router.get('/export-csv', async (req, res) => {
           .join('; ');
 
         const safeDesc = descriptions || 'Completed assigned daily tasks';
-        csv += `"${s.date}","${s.memberName}","${s.memberRole}",${s.totalTasks},${s.hoursWorked},${s.avgTasksPerHour},"${projBreakdownStr}","${safeDesc}"\n`;
+        csv += `"${s.date}","${s.memberName}","${s.memberRole}","${s.memberDepartment || 'IT'}",${s.totalTasks},${s.hoursWorked},${s.avgTasksPerHour},"${projBreakdownStr}","${safeDesc}"\n`;
       });
 
       res.setHeader('Content-Type', 'text/csv');

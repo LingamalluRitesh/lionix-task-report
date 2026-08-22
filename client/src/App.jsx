@@ -223,7 +223,7 @@ const MainApp = () => {
       projectId: projects[0]?.id || '',
       date: selectedDate,
       hourSlot,
-      taskCount: 1,
+      taskCount: 0,
       notes: '',
       status: 'Completed'
     });
@@ -314,6 +314,13 @@ const MainApp = () => {
   const handleExportCsv = (type) => {
     const url = api.getExportCsvUrl({
       type,
+      date: selectedDate
+    });
+    window.open(url, '_blank');
+  };
+
+  const handleExportExcel = () => {
+    const url = api.getExportExcelUrl({
       date: selectedDate
     });
     window.open(url, '_blank');
@@ -438,6 +445,7 @@ const MainApp = () => {
                 onDateChange={setSelectedDate}
                 onRefresh={fetchAdminData}
                 onExportCsv={handleExportCsv}
+                onExportExcel={handleExportExcel}
               />
             )}
 
