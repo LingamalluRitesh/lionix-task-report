@@ -744,13 +744,11 @@ class Database {
       if (!summaryMap[key].projectBreakdown[projName]) {
         summaryMap[key].projectBreakdown[projName] = {
           tasks: 0,
-          hours: 0,
           color: log.projectColor || '#0284c7',
           projectId: log.projectId
         };
       }
       summaryMap[key].projectBreakdown[projName].tasks += Number(log.taskCount) || 0;
-      summaryMap[key].projectBreakdown[projName].hours += 1;
     });
 
     const summaries = Object.values(summaryMap).map(item => ({
@@ -759,7 +757,6 @@ class Database {
       projectsList: Object.entries(item.projectBreakdown).map(([name, data]) => ({
         projectName: name,
         tasks: data.tasks,
-        hours: data.hours,
         color: data.color
       }))
     }));

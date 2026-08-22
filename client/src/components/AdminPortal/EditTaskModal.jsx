@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Clock, MessageSquare, Hash } from 'lucide-react';
-import { isTaskCountRequired } from '../../utils/projectUtils.js';
+import { X, Save, Clock } from 'lucide-react';
 
 export const EditTaskModal = ({
   isOpen,
@@ -45,18 +44,11 @@ export const EditTaskModal = ({
       const updated = { ...prev, [field]: value };
       if (field === 'projectId') {
         const proj = projects.find(p => p.id === value);
-        if (proj) {
-          updated.projectName = proj.name;
-          if (!isTaskCountRequired(proj.name)) {
-            updated.taskCount = 0;
-          }
-        }
+        if (proj) updated.projectName = proj.name;
       }
       return updated;
     });
   };
-
-  const requiresTasks = isTaskCountRequired(formData.projectName);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -64,7 +56,7 @@ export const EditTaskModal = ({
     try {
       await onSave(log.id, {
         ...formData,
-        taskCount: requiresTasks ? (Math.max(0, parseInt(formData.taskCount, 10) || 0)) : 0
+        taskCount: Math.max(0, parseInt(formData.taskCount, 10) || 0)
       });
       onClose();
     } finally {
@@ -83,7 +75,7 @@ export const EditTaskModal = ({
             </div>
             <div>
               <h3 className="text-base font-extrabold text-slate-900">Edit Task Entry</h3>
-              <p className="text-xs text-slate-500">Modify work details, project assignment, or task counts.</p>
+              <p className="text-xs text-slate-500">Modify tasks count, project assignment, or notes.</p>
             </div>
           </div>
           <button
@@ -127,26 +119,8 @@ export const EditTaskModal = ({
             </div>
           </div>
 
-          {/* Project Selection */}
-          <div>
-            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
-              Project Name
-            </label>
-            <select
-              value={formData.projectId}
-              onChange={(e) => handleChange('projectId', e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:outline-none font-medium"
-            >
-              {projects.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({isTaskCountRequired(p.name) ? 'Numeric Tasks' : 'Work Details / Message'})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Hour Slot & Task Count (if applicable) */}
-          <div className={requiresTasks ? "grid grid-cols-2 gap-4" : "grid grid-cols-1 gap-4"}>
+          {/* Hour Slot & Task Count */}
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
                 Hour Slot
@@ -160,21 +134,35 @@ export const EditTaskModal = ({
               />
             </div>
 
-            {requiresTasks && (
-              <div>
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                  No. of Tasks Done
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  required
-                  value={formData.taskCount}
-                  onChange={(e) => handleChange('taskCount', e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-mono font-extrabold text-sm rounded-xl px-3 py-2.5 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:outline-none"
-                />
-              </div>
-            )}
+            <div>
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                No. of Tasks Done
+              </label>
+              <input
+                type="number"
+                min="0"
+                required
+                value={formData.taskCount}
+                onChange={(e) => handleChange('taskCount', e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-mono font-extrabold text-sm rounded-xl px-3 py-2.5 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Project Selection */}
+          <div>
+            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
+              Project Name
+            </label>
+            <select
+              value={formData.projectId}
+              onChange={(e) => handleChange('projectId', e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:outline-none font-medium"
+            >
+              {projects.map(p => (
+                <option key={p.id} value={p.id}>{p.name} ({p.code || 'PROJ'})</option>
+              ))}
+            </select>
           </div>
 
           {/* Status */}

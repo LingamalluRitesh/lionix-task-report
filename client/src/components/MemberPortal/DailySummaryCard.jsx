@@ -1,20 +1,15 @@
 import React from 'react';
-import { Target, TrendingUp, Briefcase, Zap, CheckCircle2, Award, MessageSquare } from 'lucide-react';
+import { Target, TrendingUp, Briefcase, Zap, CheckCircle2, Award } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { isTaskCountRequired } from '../../utils/projectUtils.js';
 
 export const DailySummaryCard = ({ member, selectedDate, logs = [], dailyTaskGoal = 20 }) => {
-  const numericLogs = logs.filter(l => isTaskCountRequired(l.projectName));
-  const messageLogs = logs.filter(l => !isTaskCountRequired(l.projectName));
-
-  const totalTasks = numericLogs.reduce((acc, l) => acc + (Number(l.taskCount) || 0), 0);
+  const totalTasks = logs.reduce((acc, l) => acc + (Number(l.taskCount) || 0), 0);
   const hoursLogged = logs.length;
-  const hasNumericTasks = numericLogs.length > 0;
-  const avgTasksPerHour = numericLogs.length > 0 ? (totalTasks / numericLogs.length).toFixed(1) : '0.0';
+  const avgTasksPerHour = hoursLogged > 0 ? (totalTasks / hoursLogged).toFixed(1) : '0.0';
 
   const goal = Math.max(1, parseInt(dailyTaskGoal, 10) || 20);
-  const goalPercent = hasNumericTasks ? Math.min(100, Math.round((totalTasks / goal) * 100)) : Math.min(100, Math.round((hoursLogged / 9) * 100));
-  const isGoalMet = hasNumericTasks ? totalTasks >= goal : hoursLogged >= 8;
+  const goalPercent = Math.min(100, Math.round((totalTasks / goal) * 100));
+  const isGoalMet = totalTasks >= goal;
   const remainingTasks = Math.max(0, goal - totalTasks);
 
   const projectMap = {};
@@ -24,15 +19,10 @@ export const DailySummaryCard = ({ member, selectedDate, logs = [], dailyTaskGoa
       projectMap[pName] = {
         name: pName,
         tasks: 0,
-        hoursLogged: 0,
-        color: log.projectColor || '#0284c7',
-        isNumeric: isTaskCountRequired(pName),
-        lastNote: log.notes || ''
+        color: log.projectColor || '#0284c7'
       };
     }
     projectMap[pName].tasks += Number(log.taskCount) || 0;
-    projectMap[pName].hoursLogged += 1;
-    if (log.notes) projectMap[pName].lastNote = log.notes;
   });
 
   const projectsList = Object.values(projectMap);
@@ -41,8 +31,7 @@ export const DailySummaryCard = ({ member, selectedDate, logs = [], dailyTaskGoa
     .map(l => ({
       slot: l.hourSlot.split(' - ')[0] || l.hourSlot,
       fullSlot: l.hourSlot,
-      tasks: isTaskCountRequired(l.projectName) ? (Number(l.taskCount) || 0) : 1,
-      displayVal: isTaskCountRequired(l.projectName) ? `${Number(l.taskCount) || 0} tasks` : (l.notes || 'Logged'),
+      tasks: Number(l.taskCount) || 0,
       project: l.projectName,
       color: l.projectColor || '#0284c7'
     }))
@@ -61,7 +50,7 @@ export const DailySummaryCard = ({ member, selectedDate, logs = [], dailyTaskGoa
           </span>
         </div>
 
-        {/* 🎯 Daily Task Goal / Work Target Card */}
+        {/* 🎯 Daily Task Goal Card (Admin Set Target) */}
         <div className={`mt-4 p-4 rounded-2xl border transition-all ${
           isGoalMet
             ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
@@ -75,11 +64,11 @@ export const DailySummaryCard = ({ member, selectedDate, logs = [], dailyTaskGoa
                 <Target className="w-4 h-4 text-amber-600" />
               )}
               <span className="text-xs font-extrabold uppercase tracking-wide">
-                {hasNumericTasks ? 'Daily Task Goal' : 'Daily Work Hours Target'}
+                Daily Task Goal
               </span>
             </div>
             <span className="text-xs font-mono font-extrabold px-2 py-0.5 rounded-lg bg-white shadow-xs border border-slate-200/60">
-              {hasNumericTasks ? `Target: ${goal} tasks` : 'Target: 9 hrs'}
+              Target: {goal} tasks
             </span>
           </div>
 
@@ -87,9 +76,7 @@ export const DailySummaryCard = ({ member, selectedDate, logs = [], dailyTaskGoa
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs font-bold">
               <span>
-                {hasNumericTasks
-                  ? `${totalTasks} of ${goal} tasks completed`
-                  : `${hoursLogged} of 9 working hours logged`}
+                {totalTasks} of {goal} tasks completed
               </span>
               <span className="font-mono">{goalPercent}%</span>
             </div>
@@ -109,15 +96,11 @@ export const DailySummaryCard = ({ member, selectedDate, logs = [], dailyTaskGoa
             {isGoalMet ? (
               <span className="text-emerald-700 flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                🎉 Excellent! You have achieved today's target!
-              </span>
-            ) : hasNumericTasks ? (
-              <span className="text-amber-800">
-                ⏳ {remainingTasks} more {remainingTasks === 1 ? 'task' : 'tasks'} needed to meet today's goal.
+                🎉 Excellent! You have achieved today's task target!
               </span>
             ) : (
               <span className="text-amber-800">
-                ⏳ {9 - hoursLogged} more working {9 - hoursLogged === 1 ? 'hour' : 'hours'} to complete today's log.
+                ⏳ {remainingTasks} more {remainingTasks === 1 ? 'task' : 'tasks'} needed to meet today's goal.
               </span>
             )}
           </div>
@@ -127,10 +110,10 @@ export const DailySummaryCard = ({ member, selectedDate, logs = [], dailyTaskGoa
         <div className="grid grid-cols-3 gap-2.5 my-4">
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-              {hasNumericTasks ? 'Total Tasks' : 'Work Logs'}
+              Total Done
             </span>
             <span className="text-2xl font-extrabold text-amber-600 font-mono mt-0.5 block">
-              {hasNumericTasks ? totalTasks : hoursLogged}
+              {totalTasks}
             </span>
           </div>
 
@@ -145,10 +128,10 @@ export const DailySummaryCard = ({ member, selectedDate, logs = [], dailyTaskGoa
 
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-              {hasNumericTasks ? 'Tasks / Hr' : 'Active Status'}
+              Tasks / Hour
             </span>
-            <span className="text-lg font-extrabold text-indigo-600 font-mono mt-0.5 block truncate">
-              {hasNumericTasks ? avgTasksPerHour : (hoursLogged > 0 ? 'Active' : 'Pending')}
+            <span className="text-2xl font-extrabold text-indigo-600 font-mono mt-0.5 block">
+              {avgTasksPerHour}
             </span>
           </div>
         </div>
@@ -157,9 +140,9 @@ export const DailySummaryCard = ({ member, selectedDate, logs = [], dailyTaskGoa
         <div className="my-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-              <TrendingUp className="w-3.5 h-3.5 text-amber-600" /> Hourly Activity
+              <TrendingUp className="w-3.5 h-3.5 text-amber-600" /> Hourly Velocity
             </span>
-            <span className="text-[10px] text-slate-400 font-medium">9 AM – 6 PM timeline</span>
+            <span className="text-[10px] text-slate-400 font-medium">9 AM – 6 PM tasks</span>
           </div>
 
           {chartData.length > 0 ? (
@@ -177,7 +160,7 @@ export const DailySummaryCard = ({ member, selectedDate, logs = [], dailyTaskGoa
                       color: '#0f172a',
                       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                     }}
-                    formatter={(value, name, props) => [props.payload.displayVal, `${props.payload.project}`]}
+                    formatter={(value, name, props) => [`${value} tasks`, `${props.payload.project}`]}
                     labelFormatter={(label, props) => props[0]?.payload?.fullSlot || label}
                   />
                   <Bar dataKey="tasks" radius={[4, 4, 0, 0]}>
@@ -215,7 +198,7 @@ export const DailySummaryCard = ({ member, selectedDate, logs = [], dailyTaskGoa
                     <span className="text-xs font-semibold text-slate-800">{proj.name}</span>
                   </div>
                   <span className="text-xs font-extrabold text-slate-900 font-mono px-2 py-0.5 rounded-lg bg-white border border-slate-200 shadow-xs">
-                    {proj.isNumeric ? `${proj.tasks} tasks` : `${proj.hoursLogged}h logged`}
+                    {proj.tasks} tasks
                   </span>
                 </div>
               ))}
@@ -233,10 +216,10 @@ export const DailySummaryCard = ({ member, selectedDate, logs = [], dailyTaskGoa
         </div>
         <div>
           <p className="text-xs font-bold text-slate-800">
-            {isGoalMet ? '🔥 High Output — Target Met!' : hoursLogged >= 4 ? '⚡ Good Progress' : '🌱 Keep Logging'}
+            {isGoalMet ? '🔥 High Output — Goal Met!' : totalTasks >= 10 ? '⚡ Good Progress' : '🌱 Keep Logging'}
           </p>
           <p className="text-[11px] text-slate-500">
-            {hoursLogged > 0 ? `${hoursLogged} working hours logged today.` : 'Log hourly tasks to track your daily progress.'}
+            {totalTasks > 0 ? `${totalTasks} tasks logged across ${hoursLogged} working hours.` : 'Log hourly tasks to reach your daily target.'}
           </p>
         </div>
       </div>

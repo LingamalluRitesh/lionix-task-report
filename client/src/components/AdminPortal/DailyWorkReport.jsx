@@ -11,7 +11,6 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { StatCard } from '../UI/StatCard.jsx';
-import { isTaskCountRequired } from '../../utils/projectUtils.js';
 
 export const DailyWorkReport = ({
   summaries = [],
@@ -188,7 +187,7 @@ export const DailyWorkReport = ({
                       </td>
 
                       <td className="py-4 text-center font-mono font-extrabold text-emerald-600 text-sm">
-                        {summary.totalTasks > 0 ? summary.totalTasks : `${summary.hoursWorked}h`}
+                        {summary.totalTasks}
                       </td>
 
                       <td className="py-4 text-center font-mono text-slate-700">
@@ -196,27 +195,22 @@ export const DailyWorkReport = ({
                       </td>
 
                       <td className="py-4 text-center font-mono font-bold text-sky-600">
-                        {summary.avgTasksPerHour !== '0.0' ? summary.avgTasksPerHour : 'Active'}
+                        {summary.avgTasksPerHour}
                       </td>
 
                       <td className="py-4">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {summary.projectsList && summary.projectsList.length > 0 ? (
-                            summary.projectsList.map(p => {
-                              const isNumeric = isTaskCountRequired(p.projectName);
-                              return (
-                                <span
-                                  key={p.projectName}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-800 font-medium shadow-xs"
-                                >
-                                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.color || '#0284c7' }}></span>
-                                  <span className="truncate max-w-[120px]">{p.projectName}:</span>
-                                  <span className="font-mono font-extrabold text-slate-900">
-                                    {isNumeric ? `${p.tasks} tasks` : 'Work Logged'}
-                                  </span>
-                                </span>
-                              );
-                            })
+                            summary.projectsList.map(p => (
+                              <span
+                                key={p.projectName}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-800 font-medium shadow-xs"
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.color || '#0284c7' }}></span>
+                                <span className="truncate max-w-[120px]">{p.projectName}:</span>
+                                <span className="font-mono font-extrabold text-slate-900">{p.tasks}</span>
+                              </span>
+                            ))
                           ) : (
                             <span className="text-slate-400 italic">None</span>
                           )}
@@ -225,13 +219,13 @@ export const DailyWorkReport = ({
 
                       <td className="py-4 text-right pr-2">
                         <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${
-                          tasksNum >= 20 || summary.hoursWorked >= 7
+                          tasksNum >= 20
                             ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : tasksNum >= 10 || summary.hoursWorked >= 4
+                            : tasksNum >= 10
                             ? 'bg-sky-50 text-sky-700 border border-sky-200'
                             : 'bg-amber-50 text-amber-700 border border-amber-200'
                         }`}>
-                          {tasksNum >= 20 || summary.hoursWorked >= 7 ? '🔥 High Output' : tasksNum >= 10 || summary.hoursWorked >= 4 ? '⚡ Good Progress' : '🌱 Light Load'}
+                          {tasksNum >= 20 ? '🔥 High Output' : tasksNum >= 10 ? '⚡ Good Progress' : '🌱 Light Load'}
                         </span>
                       </td>
                     </tr>

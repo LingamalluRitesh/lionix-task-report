@@ -9,10 +9,10 @@ import {
   Check,
   ListTodo,
   Target,
-  MessageSquare,
-  Hash
+  FileText,
+  Hash,
+  Sparkles
 } from 'lucide-react';
-import { isTaskCountRequired } from '../../utils/projectUtils.js';
 
 const STANDARD_HOURS = [
   '09:00 AM - 10:00 AM',
@@ -31,15 +31,18 @@ export const HourlyTaskGrid = ({
   selectedDate,
   projects = [],
   logs = [],
-  dailyTaskGoal = 20,
+  dailyTaskGoal = 100,
   onSaveLog,
   onDeleteLog
 }) => {
   const [formState, setFormState] = useState({});
   const [savingSlot, setSavingSlot] = useState(null);
+  // Track input mode per slot: 'both' | 'text_only' | 'count_only'
+  const [slotModes, setSlotModes] = useState({});
 
   useEffect(() => {
     const stateMap = {};
+    const modesMap = {};
 
     STANDARD_HOURS.forEach(slot => {
       stateMap[slot] = {
@@ -52,6 +55,7 @@ export const HourlyTaskGrid = ({
         isDirty: false,
         isSaved: false
       };
+      modesMap[slot] = 'both';
     });
 
     logs.forEach(log => {
@@ -66,11 +70,24 @@ export const HourlyTaskGrid = ({
           isDirty: false,
           isSaved: true
         };
+        // If they had notes but 0 taskCount, default to text focus
+        if (log.notes && (!log.taskCount || log.taskCount === 0)) {
+          modesMap[log.hourSlot] = 'text_only';
+        }
       }
     });
 
     setFormState(stateMap);
+    setSlotModes(modesMap);
   }, [logs, projects, memberId, selectedDate]);
+
+  const toggleSlotMode = (slot) => {
+    setSlotModes(prev => {
+      const current = prev[slot] || 'both';
+      const next = current === 'both' ? 'text_only' : current === 'text_only' ? 'count_only' : 'both';
+      return { ...prev, [slot]: next };
+    });
+  };
 
   const handleFieldChange = (slot, field, value) => {
     setFormState(prev => {
@@ -82,7 +99,7 @@ export const HourlyTaskGrid = ({
         status: 'Completed'
       };
 
-      const updated = {
+      let updated = {
         ...current,
         [field]: value,
         isDirty: true,
@@ -91,12 +108,15 @@ export const HourlyTaskGrid = ({
 
       if (field === 'projectId') {
         const proj = projects.find(p => p.id === value);
-        if (proj) {
-          updated.projectName = proj.name;
-          // If switching to a project that doesn't need task count, reset count to 0
-          if (!isTaskCountRequired(proj.name)) {
-            updated.taskCount = 0;
-          }
+        if (proj) updated.projectName = proj.name;
+      }
+
+      // If typing in text notes and taskCount is 0, auto-estimate 1 task if not set
+      if (field === 'notes' && value && value.trim().length > 0 && current.taskCount === 0) {
+        // Look for numbers in the notes (e.g. "50 images done" -> 50)
+        const match = value.match(/\b(\d+)\b/);
+        if (match) {
+          updated.taskCount = parseInt(match[1], 10);
         }
       }
 
@@ -115,7 +135,15 @@ export const HourlyTaskGrid = ({
       return;
     }
 
-    const needsTaskCount = isTaskCountRequired(data.projectName);
+    let finalCount = parseInt(data.taskCount, 10);
+    if (isNaN(finalCount) || finalCount < 0) {
+      finalCount = 0;
+    }
+
+    // If task count is 0 but notes are provided, count it as 1 task session
+    if (finalCount === 0 && data.notes && data.notes.trim().length > 0) {
+      finalCount = 1;
+    }
 
     setSavingSlot(slot);
     try {
@@ -126,7 +154,7 @@ export const HourlyTaskGrid = ({
         hourSlot: slot,
         projectId: data.projectId || projects[0]?.id,
         projectName: data.projectName || projects[0]?.name,
-        taskCount: needsTaskCount ? (parseInt(data.taskCount, 10) || 0) : 0,
+        taskCount: finalCount,
         notes: data.notes || '',
         status: data.status || 'Completed'
       });
@@ -135,6 +163,7 @@ export const HourlyTaskGrid = ({
         ...prev,
         [slot]: {
           ...prev[slot],
+          taskCount: finalCount,
           isDirty: false,
           isSaved: true
         }
@@ -170,7 +199,7 @@ export const HourlyTaskGrid = ({
 
   const hasProjects = projects.length > 0;
 
-  // Calculate day completion progress across fixed standard hours
+  // Calculate day completion progress
   const loggedCount = STANDARD_HOURS.filter(s => formState[s]?.isSaved && formState[s]?.id).length;
   const progressPercent = Math.round((loggedCount / STANDARD_HOURS.length) * 100);
 
@@ -189,12 +218,12 @@ export const HourlyTaskGrid = ({
                 <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-mono">
                   Fixed 9:00 AM – 6:00 PM
                 </span>
-                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
+                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1 font-mono">
                   <Target className="w-3 h-3" /> Goal: {dailyTaskGoal} tasks/day
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                <strong>Data Annotation & Infography</strong> require numeric task counts. Other projects log normal work messages & task details.
+                Log completed work: enter numeric counts (e.g. 210 tasks) and/or write work description text.
               </p>
             </div>
           </div>
@@ -225,7 +254,7 @@ export const HourlyTaskGrid = ({
           <div>
             <span className="font-bold block">No Projects Added Yet</span>
             <p className="mt-0.5 text-amber-700">
-              Projects are managed by the Administrator only. Please have your Admin create project names in the Admin Portal before logging tasks.
+              Projects are managed by the Administrator. Please have your Admin create project names in the Admin Portal before logging tasks.
             </p>
           </div>
         </div>
@@ -244,10 +273,10 @@ export const HourlyTaskGrid = ({
             isSaved: false
           };
 
+          const mode = slotModes[slot] || 'both';
           const isSaved = entry.isSaved && !entry.isDirty && entry.id;
           const isDirty = entry.isDirty;
           const isSaving = savingSlot === slot;
-          const requiresTasks = isTaskCountRequired(entry.projectName);
 
           return (
             <div
@@ -260,19 +289,17 @@ export const HourlyTaskGrid = ({
                   : 'bg-white border-slate-200 hover:border-slate-300 shadow-xs'
               }`}
             >
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-center">
-                {/* 1. Time Slot Pill */}
-                <div className="lg:col-span-3">
-                  <div className="flex items-center justify-between lg:justify-start gap-2.5">
+              <div className="flex flex-col lg:flex-row lg:items-center gap-3.5">
+                {/* 1. Time Slot Pill & Index */}
+                <div className="lg:w-48 shrink-0">
+                  <div className="flex items-center gap-2.5">
                     <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-amber-100/70 text-amber-900 text-xs font-mono font-extrabold shrink-0">
                       {index + 1}
                     </span>
                     <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-extrabold text-slate-900 font-mono tracking-tight block">
-                          {slot}
-                        </span>
-                      </div>
+                      <span className="text-xs font-extrabold text-slate-900 font-mono tracking-tight block">
+                        {slot}
+                      </span>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         {isSaved ? (
                           <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-700 bg-emerald-100/60 px-2 py-0.5 rounded-md">
@@ -290,36 +317,37 @@ export const HourlyTaskGrid = ({
                   </div>
                 </div>
 
-                {/* 2. Project Name Selection (Admin added only) */}
-                <div className="lg:col-span-3">
-                  <label className="text-[11px] font-bold text-slate-500 block mb-1 lg:hidden">Project Name</label>
+                {/* 2. Project Selection */}
+                <div className="lg:w-48 shrink-0">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1 lg:hidden">
+                    Assigned Project
+                  </label>
                   <div className="relative">
                     <select
                       value={entry.projectId || ''}
                       onChange={(e) => handleFieldChange(slot, 'projectId', e.target.value)}
                       disabled={!hasProjects}
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs font-bold rounded-2xl px-3.5 py-2.5 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none appearance-none cursor-pointer pr-8 hover:border-slate-300 transition-all shadow-xs disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs font-bold rounded-2xl px-3 py-2.5 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none appearance-none cursor-pointer pr-8 hover:border-slate-300 transition-all shadow-xs disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
                     >
                       {hasProjects ? (
                         projects.map(proj => (
                           <option key={proj.id} value={proj.id}>
-                            {proj.name} ({isTaskCountRequired(proj.name) ? 'Task Count' : 'Work Notes'})
+                            {proj.name}
                           </option>
                         ))
                       ) : (
-                        <option value="">No projects added by admin</option>
+                        <option value="">No projects added</option>
                       )}
                     </select>
                     <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
                 </div>
 
-                {/* 3 & 4. Task Count vs Work Details (Adaptive based on Project) */}
-                {requiresTasks ? (
-                  <>
-                    {/* Number of Tasks Input (For Annotation & Infography) */}
-                    <div className="lg:col-span-2">
-                      <label className="text-[11px] font-bold text-slate-500 block mb-1 lg:hidden">Tasks Completed</label>
+                {/* 3. Flexible Work & Task Logger (Supports Number + Text) */}
+                <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                  {/* Task Count Box (Visible in 'both' and 'count_only' modes) */}
+                  {mode !== 'text_only' && (
+                    <div className="sm:w-32 shrink-0">
                       <div className="relative">
                         <input
                           type="number"
@@ -331,57 +359,62 @@ export const HourlyTaskGrid = ({
                             const val = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0);
                             handleFieldChange(slot, 'taskCount', val);
                           }}
-                          className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs font-extrabold rounded-2xl px-3.5 py-2.5 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none hover:border-slate-300 transition-all shadow-xs font-mono disabled:bg-slate-100 disabled:cursor-not-allowed"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs font-extrabold rounded-2xl px-3 py-2.5 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none hover:border-slate-300 transition-all shadow-xs font-mono disabled:bg-slate-100 disabled:cursor-not-allowed text-center"
                         />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 uppercase pointer-events-none">
+                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-extrabold text-slate-400 uppercase pointer-events-none">
                           Tasks
                         </span>
                       </div>
                     </div>
+                  )}
 
-                    {/* Task Details / Notes */}
-                    <div className="lg:col-span-2">
-                      <label className="text-[11px] font-bold text-slate-500 block mb-1 lg:hidden">Task Details / Notes</label>
+                  {/* Work Description / Text Input (Visible in 'both' and 'text_only' modes) */}
+                  {mode !== 'count_only' && (
+                    <div className="flex-1 relative">
                       <input
                         type="text"
                         disabled={!hasProjects}
-                        placeholder="Task notes / details..."
+                        placeholder="Type work details / task description (e.g. Data Annotation, Bug fixes, API tests)..."
                         value={entry.notes || ''}
                         onChange={(e) => handleFieldChange(slot, 'notes', e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-2xl px-3.5 py-2.5 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none hover:border-slate-300 transition-all shadow-xs disabled:bg-slate-100 disabled:cursor-not-allowed"
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-2xl px-3.5 py-2.5 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none hover:border-slate-300 transition-all shadow-xs disabled:bg-slate-100 disabled:cursor-not-allowed font-medium"
                       />
                     </div>
-                  </>
-                ) : (
-                  /* Expanded Normal Message / Task Details for Other Projects */
-                  <div className="lg:col-span-4">
-                    <label className="text-[11px] font-bold text-slate-500 block mb-1 lg:hidden">Work Details / Message</label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        disabled={!hasProjects}
-                        placeholder="Enter task details / work update (e.g. API implementation, bug fixes, testing)..."
-                        value={entry.notes || ''}
-                        onChange={(e) => handleFieldChange(slot, 'notes', e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-2xl px-3.5 py-2.5 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none hover:border-slate-300 transition-all shadow-xs disabled:bg-slate-100 disabled:cursor-not-allowed"
-                      />
-                      <span className="hidden sm:inline-flex items-center gap-1 absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-bold text-slate-400 uppercase pointer-events-none bg-slate-100 px-1.5 py-0.5 rounded">
-                        <MessageSquare className="w-2.5 h-2.5" /> Work Message
-                      </span>
-                    </div>
-                  </div>
-                )}
+                  )}
 
-                {/* 5. Status & Actions */}
-                <div className="lg:col-span-2 flex items-center justify-end gap-1.5 pt-2 lg:pt-0">
+                  {/* Mode Toggle Button: Switch between [Both], [Text Only], [Count Only] */}
+                  <button
+                    type="button"
+                    onClick={() => toggleSlotMode(slot)}
+                    className="shrink-0 p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all border border-slate-200/60 shadow-2xs"
+                    title={
+                      mode === 'both' 
+                        ? 'Switch to Text Details only' 
+                        : mode === 'text_only' 
+                        ? 'Switch to Task Count only' 
+                        : 'Switch to Count + Text view'
+                    }
+                  >
+                    {mode === 'both' ? (
+                      <span className="text-[10px] font-extrabold text-amber-700 px-1"># &amp; 📝</span>
+                    ) : mode === 'text_only' ? (
+                      <FileText className="w-3.5 h-3.5 text-amber-600" />
+                    ) : (
+                      <Hash className="w-3.5 h-3.5 text-amber-600" />
+                    )}
+                  </button>
+                </div>
+
+                {/* 4. Status Selector & Action Buttons */}
+                <div className="flex items-center justify-end gap-1.5 shrink-0 pt-2 lg:pt-0">
                   <select
                     value={entry.status || 'Completed'}
                     disabled={!hasProjects}
                     onChange={(e) => handleFieldChange(slot, 'status', e.target.value)}
-                    className="bg-slate-50 border border-slate-200 text-[11px] font-bold rounded-2xl px-2 py-2 text-slate-700 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none cursor-pointer shadow-xs disabled:bg-slate-100 disabled:cursor-not-allowed"
+                    className="bg-slate-50 border border-slate-200 text-[11px] font-bold rounded-2xl px-2.5 py-2.5 text-slate-700 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none cursor-pointer shadow-xs disabled:bg-slate-100 disabled:cursor-not-allowed"
                   >
                     <option value="Completed">✓ Done</option>
-                    <option value="In Progress">⏳ Progress</option>
+                    <option value="In Progress">⏳ In Progress</option>
                     <option value="Blocked">⚠️ Blocked</option>
                   </select>
 
@@ -389,7 +422,7 @@ export const HourlyTaskGrid = ({
                     type="button"
                     onClick={() => handleSave(slot)}
                     disabled={isSaving || !hasProjects}
-                    className={`flex items-center gap-1 px-3.5 py-2.5 rounded-2xl text-xs font-extrabold transition-all shadow-xs ${
+                    className={`flex items-center gap-1 px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all shadow-xs cursor-pointer ${
                       !hasProjects
                         ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                         : isDirty
@@ -405,7 +438,7 @@ export const HourlyTaskGrid = ({
                     ) : isSaved && !isDirty ? (
                       <>
                         <CheckCheck className="w-3.5 h-3.5 text-emerald-600" />
-                        <span className="hidden sm:inline">Saved</span>
+                        <span>Saved</span>
                       </>
                     ) : (
                       <>
@@ -419,7 +452,7 @@ export const HourlyTaskGrid = ({
                     <button
                       type="button"
                       onClick={() => handleDelete(slot)}
-                      className="p-2 text-slate-400 hover:text-rose-600 rounded-2xl hover:bg-rose-50 transition-colors"
+                      className="p-2 text-slate-400 hover:text-rose-600 rounded-2xl hover:bg-rose-50 transition-colors cursor-pointer"
                       title="Delete log"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
