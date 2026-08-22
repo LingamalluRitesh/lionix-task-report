@@ -75,6 +75,28 @@ export const api = {
     return res.json();
   },
 
+  // Team Assignments for Leads & Coordinators
+  async getTeamAssignments() {
+    const res = await fetch(`${API_BASE}/members/assignments`);
+    const json = await res.json();
+    return json.data || {};
+  },
+
+  async getLeadAssignments(leadId) {
+    const res = await fetch(`${API_BASE}/members/${leadId}/assignments`);
+    const json = await res.json();
+    return json.data || [];
+  },
+
+  async assignTeammates(leadId, memberIds) {
+    const res = await fetch(`${API_BASE}/members/${leadId}/assignments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ memberIds })
+    });
+    return res.json();
+  },
+
   // Projects
   async getProjects(activeOnly = false) {
     const res = await fetch(`${API_BASE}/projects${activeOnly ? '?active=true' : ''}`);
@@ -115,8 +137,10 @@ export const api = {
     return json.data || [];
   },
 
-  async getMatrix(date) {
-    const res = await fetch(`${API_BASE}/reports/matrix?date=${date}`);
+  async getMatrix(date, leadId = '') {
+    const params = new URLSearchParams({ date });
+    if (leadId) params.append('leadId', leadId);
+    const res = await fetch(`${API_BASE}/reports/matrix?${params.toString()}`);
     const json = await res.json();
     return json || { allHours: [], matrix: [] };
   },
@@ -160,13 +184,23 @@ export const api = {
     return json.data || {};
   },
 
-  getExportCsvUrl({ type = 'hourly', date = '', startDate = '', endDate = '' }) {
+  async getLeadOverview(leadId, date) {
+    const params = new URLSearchParams({ leadId });
+    if (date) params.append('date', date);
+    const res = await fetch(`${API_BASE}/reports/lead-overview?${params.toString()}`);
+    const json = await res.json();
+    return json.data || {};
+  },
+
+  getExportCsvUrl({ type = 'hourly', date = '', startDate = '', endDate = '', leadId = '' }) {
     const params = new URLSearchParams({ type, date, startDate, endDate });
+    if (leadId) params.append('leadId', leadId);
     return `${API_BASE}/reports/export-csv?${params.toString()}`;
   },
 
-  getExportExcelUrl({ date = '', startDate = '', endDate = '' }) {
+  getExportExcelUrl({ date = '', startDate = '', endDate = '', leadId = '' }) {
     const params = new URLSearchParams({ date, startDate, endDate });
+    if (leadId) params.append('leadId', leadId);
     return `${API_BASE}/reports/export-excel?${params.toString()}`;
   }
 };

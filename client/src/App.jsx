@@ -4,6 +4,7 @@ import { UnifiedAuth } from './components/Auth/EmployeeAuth.jsx';
 import { MemberSelector } from './components/MemberPortal/MemberSelector.jsx';
 import { HourlyTaskGrid } from './components/MemberPortal/HourlyTaskGrid.jsx';
 import { DailySummaryCard } from './components/MemberPortal/DailySummaryCard.jsx';
+import { LeadPortal } from './components/LeadPortal/LeadPortal.jsx';
 import { AdminDashboard } from './components/AdminPortal/AdminDashboard.jsx';
 import { HourlyWorkReport } from './components/AdminPortal/HourlyWorkReport.jsx';
 import { DailyWorkReport } from './components/AdminPortal/DailyWorkReport.jsx';
@@ -18,7 +19,8 @@ import {
   BarChart3, 
   Users, 
   FolderKanban, 
-  Flame
+  Flame,
+  Crown
 } from 'lucide-react';
 
 const MainApp = () => {
@@ -44,8 +46,12 @@ const MainApp = () => {
     )
   );
 
-  // Admin Active Tab
+  // Team Lead / Coordinator Recognition
+  const isLead = Boolean(!isAdmin && currentUser?.isLead);
+
+  // Active Tabs
   const [currentAdminTab, setCurrentAdminTab] = useState('overview'); // 'overview' | 'hourly' | 'daily' | 'members' | 'projects'
+  const [leadTab, setLeadTab] = useState('team-progress'); // 'team-progress' | 'my-tasks'
 
   // Master Data & Global Settings
   const [members, setMembers] = useState([]);
@@ -167,6 +173,9 @@ const MainApp = () => {
     if (userIsAdmin) {
       addToast(`Welcome to LionIX Admin Dashboard, ${enrichedUser.name}!`, 'success');
       setCurrentAdminTab('overview');
+    } else if (enrichedUser.isLead) {
+      addToast(`Welcome ${enrichedUser.name} (${enrichedUser.role || 'Team Lead'})! View-only team monitor active.`, 'success');
+      setLeadTab('team-progress');
     } else {
       addToast(`Welcome to LionIX, ${enrichedUser.name}!`, 'success');
     }
@@ -311,17 +320,19 @@ const MainApp = () => {
     }
   };
 
-  const handleExportCsv = (type) => {
+  const handleExportCsv = (type, leadId = '') => {
     const url = api.getExportCsvUrl({
       type,
-      date: selectedDate
+      date: selectedDate,
+      leadId
     });
     window.open(url, '_blank');
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = (leadId = '') => {
     const url = api.getExportExcelUrl({
-      date: selectedDate
+      date: selectedDate,
+      leadId
     });
     window.open(url, '_blank');
   };
@@ -335,6 +346,8 @@ const MainApp = () => {
         employeeUser={!isAdmin ? currentUser : null}
         currentAdminTab={currentAdminTab}
         onAdminTabChange={setCurrentAdminTab}
+        leadTab={leadTab}
+        onLeadTabChange={setLeadTab}
         onLogout={handleLogout}
       />
 
@@ -395,7 +408,7 @@ const MainApp = () => {
                 }`}
               >
                 <Users className="w-4 h-4" />
-                <span>Team</span>
+                <span>Team &amp; Leads</span>
               </button>
               <button
                 onClick={() => setCurrentAdminTab('projects')}
@@ -433,7 +446,7 @@ const MainApp = () => {
                 onDeleteLog={handleDeleteHourlyLog}
                 onAddNewLog={handleAddNewLogForMember}
                 onRefresh={fetchAdminData}
-                onExportCsv={handleExportCsv}
+                onExportCsv={() => handleExportCsv('hourly')}
               />
             )}
 
@@ -444,8 +457,8 @@ const MainApp = () => {
                 selectedDate={selectedDate}
                 onDateChange={setSelectedDate}
                 onRefresh={fetchAdminData}
-                onExportCsv={handleExportCsv}
-                onExportExcel={handleExportExcel}
+                onExportCsv={() => handleExportCsv('daily')}
+                onExportExcel={() => handleExportExcel()}
               />
             )}
 
@@ -468,9 +481,74 @@ const MainApp = () => {
               />
             )}
           </div>
-        ) : (
-          /* EMPLOYEE TASK TRACKER PORTAL */
+        ) : isLead && leadTab === 'team-progress' ? (
+          /* TEAM LEAD / COORDINATOR VIEW-ONLY PORTAL */
           <div className="space-y-6">
+            {/* Mobile Tab Switcher for Lead */}
+            <div className="flex sm:hidden items-center gap-1.5 p-1 bg-white border border-slate-200 rounded-2xl shadow-xs">
+              <button
+                onClick={() => setLeadTab('team-progress')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                  leadTab === 'team-progress'
+                    ? 'bg-amber-500 text-white shadow-xs'
+                    : 'text-slate-600'
+                }`}
+              >
+                <Crown className="w-3.5 h-3.5" />
+                <span>Team Progress</span>
+              </button>
+              <button
+                onClick={() => setLeadTab('my-tasks')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                  leadTab === 'my-tasks'
+                    ? 'bg-amber-500 text-white shadow-xs'
+                    : 'text-slate-600'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>My Tasks</span>
+              </button>
+            </div>
+
+            <LeadPortal
+              currentUser={currentUser}
+              selectedDate={selectedDate}
+              onDateChange={setSelectedDate}
+              onExportExcel={() => handleExportExcel(currentUser.id)}
+              onExportCsv={() => handleExportCsv('daily', currentUser.id)}
+            />
+          </div>
+        ) : (
+          /* REGULAR EMPLOYEE TASK TRACKER PORTAL OR LEAD'S OWN TASK LOGGER */
+          <div className="space-y-6">
+            {/* Mobile Tab Switcher for Lead in My-Tasks mode */}
+            {isLead && (
+              <div className="flex sm:hidden items-center gap-1.5 p-1 bg-white border border-slate-200 rounded-2xl shadow-xs">
+                <button
+                  onClick={() => setLeadTab('team-progress')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                    leadTab === 'team-progress'
+                      ? 'bg-amber-500 text-white shadow-xs'
+                      : 'text-slate-600'
+                  }`}
+                >
+                  <Crown className="w-3.5 h-3.5" />
+                  <span>Team Progress</span>
+                </button>
+                <button
+                  onClick={() => setLeadTab('my-tasks')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                    leadTab === 'my-tasks'
+                      ? 'bg-amber-500 text-white shadow-xs'
+                      : 'text-slate-600'
+                  }`}
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>My Tasks</span>
+                </button>
+              </div>
+            )}
+
             {/* Top Member Header & Date Selector */}
             <MemberSelector
               employeeUser={currentUser}
@@ -531,7 +609,7 @@ const MainApp = () => {
             <span>LionIX Task Report — 9:00 AM to 6:00 PM Enterprise Work Tracking</span>
           </p>
           <p className="text-[11px] text-slate-400 font-medium">
-            Unified Portal • Role-Based Access Routing
+            Role-Based Access: Admin • Team Lead • Team Coordinator • Team Member
           </p>
         </div>
       </footer>

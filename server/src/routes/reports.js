@@ -53,8 +53,18 @@ router.get('/hourly', async (req, res) => {
 router.get('/matrix', async (req, res) => {
   try {
     const date = req.query.date || new Date().toISOString().split('T')[0];
-    const members = await db.getMembers(true);
-    const logs = await db.getHourlyLogs({ date });
+    const leadId = req.query.leadId;
+
+    let members = await db.getMembers(true);
+    let logs = await db.getHourlyLogs({ date });
+
+    // Filter by lead if requested
+    if (leadId) {
+      const assignedIds = await db.getTeamAssignments(leadId);
+      const relevantIds = Array.from(new Set([leadId, ...assignedIds]));
+      members = members.filter(m => relevantIds.includes(m.id));
+      logs = logs.filter(l => relevantIds.includes(l.memberId));
+    }
 
     // Collect any extra custom hours
     const customHours = new Set();
@@ -162,9 +172,30 @@ router.delete('/hourly/:id', async (req, res) => {
 // GET daily summary aggregated report
 router.get('/daily-summary', async (req, res) => {
   try {
-    const { date, startDate, endDate, memberId } = req.query;
-    const summaries = await db.getDailySummary({ date, startDate, endDate, memberId });
+    const { date, startDate, endDate, memberId, leadId } = req.query;
+    let summaries = await db.getDailySummary({ date, startDate, endDate, memberId });
+
+    if (leadId) {
+      const assignedIds = await db.getTeamAssignments(leadId);
+      const relevantIds = Array.from(new Set([leadId, ...assignedIds]));
+      summaries = summaries.filter(s => relevantIds.includes(s.memberId));
+    }
+
     res.json({ success: true, count: summaries.length, data: summaries });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET lead overview (Work progress for assigned teammates)
+router.get('/lead-overview', async (req, res) => {
+  try {
+    const { leadId, date, startDate, endDate } = req.query;
+    if (!leadId) {
+      return res.status(400).json({ success: false, error: 'leadId is required' });
+    }
+    const overview = await db.getLeadOverview(leadId, { date, startDate, endDate });
+    res.json({ success: true, data: overview });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -184,14 +215,23 @@ router.get('/admin-overview', async (req, res) => {
 // GET export professional styled Microsoft Excel (.xlsx) report
 router.get('/export-excel', async (req, res) => {
   try {
-    const { date, startDate, endDate } = req.query;
+    const { date, startDate, endDate, leadId } = req.query;
     const targetDate = date || new Date().toISOString().split('T')[0];
 
-    const [summaries, members, logs] = await Promise.all([
+    let [summaries, members, logs] = await Promise.all([
       db.getDailySummary({ date: targetDate, startDate, endDate }),
       db.getMembers(true),
       db.getHourlyLogs({ date: targetDate, startDate, endDate })
     ]);
+
+    // If Team Lead / Coordinator is exporting, filter strictly to their assigned team
+    if (leadId) {
+      const assignedIds = await db.getTeamAssignments(leadId);
+      const relevantIds = Array.from(new Set([leadId, ...assignedIds]));
+      summaries = summaries.filter(s => relevantIds.includes(s.memberId));
+      members = members.filter(m => relevantIds.includes(m.id));
+      logs = logs.filter(l => relevantIds.includes(l.memberId));
+    }
 
     // Build matrix data for Sheet 2
     const customHours = new Set();
@@ -240,7 +280,7 @@ router.get('/export-excel', async (req, res) => {
     );
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename=LionIX-Executive-WorkReport-${targetDate}.xlsx`
+      `attachment; filename=LionIX-${leadId ? 'TeamLead' : 'Executive'}-WorkReport-${targetDate}.xlsx`
     );
 
     await workbook.xlsx.write(res);
@@ -254,11 +294,18 @@ router.get('/export-excel', async (req, res) => {
 // GET export reports to CSV
 router.get('/export-csv', async (req, res) => {
   try {
-    const { type, date, startDate, endDate } = req.query;
+    const { type, date, startDate, endDate, leadId } = req.query;
     const isDaily = type === 'daily';
 
     if (isDaily) {
-      const summaries = await db.getDailySummary({ date, startDate, endDate });
+      let summaries = await db.getDailySummary({ date, startDate, endDate });
+
+      if (leadId) {
+        const assignedIds = await db.getTeamAssignments(leadId);
+        const relevantIds = Array.from(new Set([leadId, ...assignedIds]));
+        summaries = summaries.filter(s => relevantIds.includes(s.memberId));
+      }
+
       let csv = 'Date,Member Name,Member Role,Department,Total Tasks,Hours Worked,Avg Tasks/Hour,Projects Breakdown,Work Description / Task Details\n';
       summaries.forEach(s => {
         const projBreakdownStr = s.projectsList.map(p => `${p.projectName} (${p.tasks} tasks)`).join('; ');
@@ -283,7 +330,14 @@ router.get('/export-csv', async (req, res) => {
       res.setHeader('Content-Disposition', `attachment; filename=lionix-daily-workreport-${date || 'all'}.csv`);
       return res.send(csv);
     } else {
-      const logs = await db.getHourlyLogs({ date, startDate, endDate });
+      let logs = await db.getHourlyLogs({ date, startDate, endDate });
+
+      if (leadId) {
+        const assignedIds = await db.getTeamAssignments(leadId);
+        const relevantIds = Array.from(new Set([leadId, ...assignedIds]));
+        logs = logs.filter(l => relevantIds.includes(l.memberId));
+      }
+
       let csv = 'Log ID,Date,Hour Slot,Member Name,Project Name,Task Count,Status,Notes\n';
       logs.forEach(l => {
         const safeNotes = (l.notes || '').replace(/"/g, '""');

@@ -3,6 +3,37 @@ import { db } from '../db/database.js';
 
 const router = express.Router();
 
+// GET all team assignments (map of leadId -> memberIds)
+router.get('/assignments', async (req, res) => {
+  try {
+    const assignments = await db.getTeamAssignments();
+    res.json({ success: true, data: assignments });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET teammates assigned to a specific lead
+router.get('/:id/assignments', async (req, res) => {
+  try {
+    const assignedIds = await db.getTeamAssignments(req.params.id);
+    res.json({ success: true, data: assignedIds });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST assign teammates to a specific lead
+router.post('/:id/assignments', async (req, res) => {
+  try {
+    const { memberIds } = req.body;
+    const updated = await db.assignTeammates(req.params.id, memberIds);
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // GET all members
 router.get('/', async (req, res) => {
   try {

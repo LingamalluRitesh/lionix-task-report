@@ -136,6 +136,13 @@ class Database {
         updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
         UNIQUE (member_id, date, hour_slot)
       );
+
+      CREATE TABLE IF NOT EXISTS team_assignments (
+        lead_id VARCHAR(255) NOT NULL,
+        member_id VARCHAR(255) NOT NULL,
+        assigned_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (lead_id, member_id)
+      );
     `;
     await this.pool.query(schemaSql);
   }
@@ -315,6 +322,10 @@ class Database {
         const member = memberRes.rows[0];
         const expectedPass = member.password || DEFAULT_EMPLOYEE_PASSWORD;
         if (cleanPass === expectedPass || cleanPass === DEFAULT_EMPLOYEE_PASSWORD) {
+          const roleLower = (member.role || '').toLowerCase();
+          const isLead = roleLower.includes('lead') || roleLower.includes('coordinator') || roleLower.includes('manager');
+          const assignedMemberIds = await this.getTeamAssignments(member.id);
+
           return {
             id: member.id,
             name: member.name,
@@ -322,7 +333,10 @@ class Database {
             role: member.role,
             department: member.department || 'IT',
             avatarColor: member.avatar_color || '#0284c7',
-            isAdmin: false
+            isAdmin: false,
+            isLead: Boolean(isLead || assignedMemberIds.length > 0),
+            leadRole: member.role,
+            assignedMemberIds
           };
         }
       }
@@ -341,7 +355,8 @@ class Database {
         role: 'Administrator',
         department: 'IT',
         avatarColor: '#f59e0b',
-        isAdmin: true
+        isAdmin: true,
+        isLead: false
       };
     }
 
@@ -355,6 +370,10 @@ class Database {
       ) && m.active
     );
     if (member && (cleanPass === member.password || cleanPass === DEFAULT_EMPLOYEE_PASSWORD)) {
+      const roleLower = (member.role || '').toLowerCase();
+      const isLead = roleLower.includes('lead') || roleLower.includes('coordinator') || roleLower.includes('manager');
+      const assignedMemberIds = await this.getTeamAssignments(member.id);
+
       return {
         id: member.id,
         name: member.name,
@@ -362,7 +381,10 @@ class Database {
         role: member.role,
         department: member.department || 'IT',
         avatarColor: member.avatarColor || '#0284c7',
-        isAdmin: false
+        isAdmin: false,
+        isLead: Boolean(isLead || assignedMemberIds.length > 0),
+        leadRole: member.role,
+        assignedMemberIds
       };
     }
     return null;
@@ -473,6 +495,80 @@ class Database {
     this.localData.hourlyLogs = this.localData.hourlyLogs.filter(l => l.memberId !== id);
     this.saveLocalData();
     return true;
+  }
+
+  // --- Team Assignments (Team Leads & Coordinators) ---
+  async getTeamAssignments(leadId = null) {
+    if (this.usePostgres) {
+      if (leadId) {
+        const res = await this.pool.query(
+          'SELECT member_id FROM team_assignments WHERE lead_id = $1',
+          [leadId]
+        );
+        return res.rows.map(r => r.member_id);
+      } else {
+        const res = await this.pool.query('SELECT lead_id, member_id FROM team_assignments');
+        const map = {};
+        res.rows.forEach(r => {
+          if (!map[r.lead_id]) map[r.lead_id] = [];
+          map[r.lead_id].push(r.member_id);
+        });
+        return map;
+      }
+    }
+
+    if (!this.localData.teamAssignments) this.localData.teamAssignments = {};
+    if (leadId) {
+      return this.localData.teamAssignments[leadId] || [];
+    }
+    return this.localData.teamAssignments || {};
+  }
+
+  async assignTeammates(leadId, memberIds = []) {
+    const cleanIds = Array.isArray(memberIds) ? memberIds : [];
+    if (this.usePostgres) {
+      await this.pool.query('DELETE FROM team_assignments WHERE lead_id = $1', [leadId]);
+      for (const mId of cleanIds) {
+        await this.pool.query(
+          'INSERT INTO team_assignments (lead_id, member_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [leadId, mId]
+        );
+      }
+      return cleanIds;
+    }
+
+    if (!this.localData.teamAssignments) this.localData.teamAssignments = {};
+    this.localData.teamAssignments[leadId] = cleanIds;
+    this.saveLocalData();
+    return cleanIds;
+  }
+
+  async getLeadOverview(leadId, { date, startDate, endDate } = {}) {
+    const targetDate = date || new Date().toISOString().split('T')[0];
+    const assignedMemberIds = await this.getTeamAssignments(leadId);
+    
+    // Include the lead themselves + their assigned members
+    const allRelevantIds = Array.from(new Set([leadId, ...assignedMemberIds]));
+    
+    const allMembers = await this.getMembers();
+    const teamMembers = allMembers.filter(m => allRelevantIds.includes(m.id));
+    
+    const logs = await this.getHourlyLogs({ date: targetDate, startDate, endDate });
+    const teamLogs = logs.filter(l => allRelevantIds.includes(l.memberId));
+    
+    const summaries = await this.getDailySummary({ date: targetDate, startDate, endDate });
+    const teamSummaries = summaries.filter(s => allRelevantIds.includes(s.memberId));
+
+    return {
+      date: targetDate,
+      leadId,
+      teamMembers,
+      teamLogs,
+      teamSummaries,
+      totalTeamTasks: teamLogs.reduce((acc, l) => acc + (Number(l.taskCount) || 0), 0),
+      totalTeamHours: teamLogs.length,
+      assignedCount: assignedMemberIds.length
+    };
   }
 
   // --- Projects CRUD ---
