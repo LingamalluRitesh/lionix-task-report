@@ -245,28 +245,44 @@ class Database {
     }
   }
 
-  // --- Settings ---
+  // --- Settings (Daily Task Goal & Active Shift) ---
   async getSettings() {
     if (this.usePostgres) {
-      const res = await this.pool.query("SELECT value FROM app_settings WHERE key = 'dailyTaskGoal'");
+      const res = await this.pool.query("SELECT value FROM app_settings WHERE key = 'app_config'");
       if (res.rows.length > 0) {
-        return res.rows[0].value;
+        const val = typeof res.rows[0].value === 'string' ? JSON.parse(res.rows[0].value) : res.rows[0].value;
+        return {
+          dailyTaskGoal: val.dailyTaskGoal || 100,
+          currentShift: val.currentShift || 'morning'
+        };
       }
-      return { dailyTaskGoal: 100 };
+      const oldRes = await this.pool.query("SELECT value FROM app_settings WHERE key = 'dailyTaskGoal'");
+      if (oldRes.rows.length > 0) {
+        const val = typeof oldRes.rows[0].value === 'string' ? JSON.parse(oldRes.rows[0].value) : oldRes.rows[0].value;
+        return {
+          dailyTaskGoal: val.dailyTaskGoal || 100,
+          currentShift: 'morning'
+        };
+      }
+      return { dailyTaskGoal: 100, currentShift: 'morning' };
     }
-    return this.localData.settings || { dailyTaskGoal: 100 };
+    return this.localData.settings || { dailyTaskGoal: 100, currentShift: 'morning' };
   }
 
   async updateSettings(updates) {
-    let goal = parseInt(updates.dailyTaskGoal, 10) || 100;
-    if (goal >= 3000) goal = 2999;
-    if (goal < 1) goal = 1;
+    const current = await this.getSettings();
+    let goal = updates.dailyTaskGoal !== undefined ? parseInt(updates.dailyTaskGoal, 10) : current.dailyTaskGoal;
+    if (isNaN(goal) || goal < 1) goal = 100;
+    if (goal >= 5000) goal = 4999;
 
-    const val = { dailyTaskGoal: goal };
+    let shift = updates.currentShift || current.currentShift || 'morning';
+    if (shift !== 'morning' && shift !== 'night') shift = 'morning';
+
+    const val = { dailyTaskGoal: goal, currentShift: shift };
     if (this.usePostgres) {
       await this.pool.query(`
         INSERT INTO app_settings (key, value)
-        VALUES ('dailyTaskGoal', $1)
+        VALUES ('app_config', $1)
         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
       `, [JSON.stringify(val)]);
       return val;

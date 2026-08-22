@@ -53,10 +53,11 @@ const MainApp = () => {
   const [currentAdminTab, setCurrentAdminTab] = useState('overview'); // 'overview' | 'hourly' | 'daily' | 'members' | 'projects'
   const [leadTab, setLeadTab] = useState('team-progress'); // 'team-progress' | 'my-tasks'
 
-  // Master Data & Global Settings
+  // Master Data & Global Settings (Goal + Shift)
   const [members, setMembers] = useState([]);
   const [projects, setProjects] = useState([]);
   const [dailyTaskGoal, setDailyTaskGoal] = useState(100);
+  const [currentShift, setCurrentShift] = useState('morning'); // 'morning' | 'night'
   const [loading, setLoading] = useState(true);
 
   // Selected Date
@@ -75,7 +76,7 @@ const MainApp = () => {
   const [editingLog, setEditingLog] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  // Fetch Master Data & Global Goal
+  // Fetch Master Data & Global Goal & Shift
   const fetchMasterData = async () => {
     try {
       const [membersData, projectsData, settingsData] = await Promise.all([
@@ -87,6 +88,9 @@ const MainApp = () => {
       setProjects(projectsData);
       if (settingsData?.dailyTaskGoal) {
         setDailyTaskGoal(settingsData.dailyTaskGoal);
+      }
+      if (settingsData?.currentShift) {
+        setCurrentShift(settingsData.currentShift);
       }
     } catch (err) {
       console.error('Error loading master data:', err);
@@ -125,6 +129,9 @@ const MainApp = () => {
       if (settingsData?.dailyTaskGoal) {
         setDailyTaskGoal(settingsData.dailyTaskGoal);
       }
+      if (settingsData?.currentShift) {
+        setCurrentShift(settingsData.currentShift);
+      }
     } catch (err) {
       console.error('Error fetching admin data:', err);
     }
@@ -152,6 +159,19 @@ const MainApp = () => {
       fetchAdminData();
     }
   }, [currentUser, isAdmin, selectedDate, fetchAdminData]);
+
+  // Shift Change Handler
+  const handleShiftChange = async (newShift) => {
+    setCurrentShift(newShift);
+    if (isAdmin) {
+      try {
+        await api.updateSettings({ currentShift: newShift });
+        await fetchAdminData();
+      } catch (err) {
+        console.error('Failed to sync shift setting:', err);
+      }
+    }
+  };
 
   // Unified Login Handler
   const handleLoginSuccess = (user) => {
@@ -324,7 +344,8 @@ const MainApp = () => {
     const url = api.getExportCsvUrl({
       type,
       date: selectedDate,
-      leadId
+      leadId,
+      shift: currentShift
     });
     window.open(url, '_blank');
   };
@@ -332,7 +353,8 @@ const MainApp = () => {
   const handleExportExcel = (leadId = '') => {
     const url = api.getExportExcelUrl({
       date: selectedDate,
-      leadId
+      leadId,
+      shift: currentShift
     });
     window.open(url, '_blank');
   };
@@ -428,6 +450,8 @@ const MainApp = () => {
               <AdminDashboard
                 overview={adminOverview}
                 selectedDate={selectedDate}
+                currentShift={currentShift}
+                onShiftChange={handleShiftChange}
                 onDateChange={setSelectedDate}
                 onNavigateTab={setCurrentAdminTab}
                 onRefresh={fetchAdminData}
@@ -441,12 +465,15 @@ const MainApp = () => {
                 members={members}
                 projects={projects}
                 selectedDate={selectedDate}
+                currentShift={currentShift}
+                onShiftChange={handleShiftChange}
                 onDateChange={setSelectedDate}
                 onEditLog={handleOpenEditLog}
                 onDeleteLog={handleDeleteHourlyLog}
                 onAddNewLog={handleAddNewLogForMember}
                 onRefresh={fetchAdminData}
                 onExportCsv={() => handleExportCsv('hourly')}
+                onExportExcel={() => handleExportExcel()}
               />
             )}
 
@@ -513,6 +540,8 @@ const MainApp = () => {
             <LeadPortal
               currentUser={currentUser}
               selectedDate={selectedDate}
+              currentShift={currentShift}
+              onShiftChange={handleShiftChange}
               onDateChange={setSelectedDate}
               onExportExcel={() => handleExportExcel(currentUser.id)}
               onExportCsv={() => handleExportCsv('daily', currentUser.id)}
@@ -563,6 +592,8 @@ const MainApp = () => {
                 <HourlyTaskGrid
                   memberId={currentUser.id}
                   selectedDate={selectedDate}
+                  currentShift={currentShift}
+                  onShiftChange={handleShiftChange}
                   projects={projects}
                   logs={employeeLogs}
                   dailyTaskGoal={dailyTaskGoal}
@@ -606,10 +637,10 @@ const MainApp = () => {
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="flex items-center gap-1.5 font-bold text-slate-800">
             <Flame className="w-4 h-4 text-amber-500 fill-amber-500" />
-            <span>LionIX Task Report — 9:00 AM to 6:00 PM Enterprise Work Tracking</span>
+            <span>LionIX Task Report — Morning (9 AM - 6 PM) &amp; Night (8 PM - 5 AM) Shift Tracking</span>
           </p>
           <p className="text-[11px] text-slate-400 font-medium">
-            Role-Based Access: Admin • Team Lead • Team Coordinator • Team Member
+            Shift Management • Enterprise Work Reports
           </p>
         </div>
       </footer>

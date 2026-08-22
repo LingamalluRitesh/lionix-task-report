@@ -10,20 +10,11 @@ import {
   CheckCircle2,
   Table as TableIcon,
   RefreshCw,
-  FileText
+  FileText,
+  FileSpreadsheet,
+  Sun,
+  Moon
 } from 'lucide-react';
-
-const STANDARD_HOURS = [
-  '09:00 AM - 10:00 AM',
-  '10:00 AM - 11:00 AM',
-  '11:00 AM - 12:00 PM',
-  '12:00 PM - 01:00 PM',
-  '01:00 PM - 02:00 PM',
-  '02:00 PM - 03:00 PM',
-  '03:00 PM - 04:00 PM',
-  '04:00 PM - 05:00 PM',
-  '05:00 PM - 06:00 PM'
-];
 
 export const HourlyWorkReport = ({
   matrixData = { allHours: [], matrix: [] },
@@ -31,12 +22,15 @@ export const HourlyWorkReport = ({
   members = [],
   projects = [],
   selectedDate,
+  currentShift = 'morning',
+  onShiftChange,
   onDateChange,
   onEditLog,
   onDeleteLog,
   onAddNewLog,
   onRefresh,
-  onExportCsv
+  onExportCsv,
+  onExportExcel
 }) => {
   const [viewMode, setViewMode] = useState('matrix'); // 'matrix' | 'table'
   const [selectedMemberFilter, setSelectedMemberFilter] = useState('');
@@ -52,7 +46,8 @@ export const HourlyWorkReport = ({
     }
   };
 
-  const allHours = matrixData.allHours?.length > 0 ? matrixData.allHours : STANDARD_HOURS;
+  const isNightShift = currentShift === 'night';
+  const allHours = matrixData.allHours?.length > 0 ? matrixData.allHours : [];
   
   // Filter Matrix
   const matrix = (matrixData.matrix || []).filter(row => {
@@ -73,14 +68,18 @@ export const HourlyWorkReport = ({
       <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-xs">
-              <Clock className="w-5 h-5" />
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-xs ${
+              isNightShift ? 'bg-indigo-50 border border-indigo-200 text-indigo-600' : 'bg-amber-50 border border-amber-200 text-amber-600'
+            }`}>
+              {isNightShift ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">Hourly Work Matrix &amp; Task Logs</h2>
-                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-mono">
-                  9:00 AM – 6:00 PM
+                <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border font-mono flex items-center gap-1 ${
+                  isNightShift ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+                }`}>
+                  {isNightShift ? '🌙 Night Shift (8:00 PM – 5:00 AM)' : '☀️ Morning Shift (9:00 AM – 6:00 PM)'}
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -91,6 +90,30 @@ export const HourlyWorkReport = ({
 
           {/* Controls & Filters */}
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Shift Switcher Toggle */}
+            <div className="flex items-center p-1 bg-slate-100 rounded-2xl border border-slate-200">
+              <button
+                type="button"
+                onClick={() => onShiftChange && onShiftChange('morning')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                  !isNightShift ? 'bg-white text-amber-700 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <Sun className="w-3.5 h-3.5 text-amber-500" />
+                <span>Morning</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onShiftChange && onShiftChange('night')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                  isNightShift ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <Moon className="w-3.5 h-3.5 text-indigo-300" />
+                <span>Night</span>
+              </button>
+            </div>
+
             {/* View Switcher */}
             <div className="flex items-center p-1 bg-slate-100 rounded-2xl border border-slate-200/60">
               <button
@@ -101,7 +124,7 @@ export const HourlyWorkReport = ({
                 }`}
               >
                 <TableIcon className="w-3.5 h-3.5" />
-                <span>Matrix View</span>
+                <span>Matrix</span>
               </button>
               <button
                 type="button"
@@ -149,14 +172,14 @@ export const HourlyWorkReport = ({
               <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-amber-600' : ''}`} />
             </button>
 
-            {/* Export CSV */}
+            {/* Export Excel (.xlsx) */}
             <button
               type="button"
-              onClick={() => onExportCsv('hourly')}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold shadow-md shadow-amber-500/25 transition-all cursor-pointer"
+              onClick={onExportExcel}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-md shadow-emerald-600/25 transition-all cursor-pointer"
             >
-              <Download className="w-3.5 h-3.5" />
-              <span>Export CSV</span>
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span>Export Excel</span>
             </button>
           </div>
         </div>
@@ -167,7 +190,9 @@ export const HourlyWorkReport = ({
         <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-4 border-b border-slate-100 gap-2">
             <div>
-              <h3 className="text-sm font-extrabold text-slate-900">9:00 AM – 6:00 PM Team Hourly Work Matrix</h3>
+              <h3 className="text-sm font-extrabold text-slate-900">
+                {isNightShift ? '8:00 PM – 5:00 AM Night Shift Matrix' : '9:00 AM – 6:00 PM Morning Shift Matrix'}
+              </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Displays task counts &amp; work description text side by side. Click any cell to inspect or edit.
               </p>

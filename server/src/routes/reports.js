@@ -4,8 +4,8 @@ import { generateProfessionalExcelReport } from '../utils/excelExporter.js';
 
 const router = express.Router();
 
-// Standard 9:00 AM to 6:00 PM Working Hours
-const STANDARD_HOURS = [
+// Morning Shift: 9:00 AM to 6:00 PM
+export const MORNING_HOURS = [
   '09:00 AM - 10:00 AM',
   '10:00 AM - 11:00 AM',
   '11:00 AM - 12:00 PM',
@@ -17,7 +17,24 @@ const STANDARD_HOURS = [
   '05:00 PM - 06:00 PM'
 ];
 
-// GET settings (Daily Task Goal)
+// Night Shift: 8:00 PM to 5:00 AM
+export const NIGHT_HOURS = [
+  '08:00 PM - 09:00 PM',
+  '09:00 PM - 10:00 PM',
+  '10:00 PM - 11:00 PM',
+  '11:00 PM - 12:00 AM',
+  '12:00 AM - 01:00 AM',
+  '01:00 AM - 02:00 AM',
+  '02:00 AM - 03:00 AM',
+  '03:00 AM - 04:00 AM',
+  '04:00 AM - 05:00 AM'
+];
+
+export function getHoursForShift(shift = 'morning') {
+  return shift === 'night' ? NIGHT_HOURS : MORNING_HOURS;
+}
+
+// GET settings (Daily Task Goal & Current Shift)
 router.get('/settings', async (req, res) => {
   try {
     const settings = await db.getSettings();
@@ -27,11 +44,11 @@ router.get('/settings', async (req, res) => {
   }
 });
 
-// PUT update settings (Daily Task Goal)
+// PUT update settings (Daily Task Goal & Current Shift)
 router.put('/settings', async (req, res) => {
   try {
-    const { dailyTaskGoal } = req.body;
-    const settings = await db.updateSettings({ dailyTaskGoal });
+    const { dailyTaskGoal, currentShift } = req.body;
+    const settings = await db.updateSettings({ dailyTaskGoal, currentShift });
     res.json({ success: true, data: settings });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -49,11 +66,16 @@ router.get('/hourly', async (req, res) => {
   }
 });
 
-// GET hourly matrix for a specific date (all members vs 9 AM to 6 PM hours)
+// GET hourly matrix for a specific date & shift
 router.get('/matrix', async (req, res) => {
   try {
     const date = req.query.date || new Date().toISOString().split('T')[0];
     const leadId = req.query.leadId;
+    const requestedShift = req.query.shift;
+
+    const settings = await db.getSettings();
+    const activeShift = requestedShift || settings.currentShift || 'morning';
+    const standardHours = getHoursForShift(activeShift);
 
     let members = await db.getMembers(true);
     let logs = await db.getHourlyLogs({ date });
@@ -66,15 +88,15 @@ router.get('/matrix', async (req, res) => {
       logs = logs.filter(l => relevantIds.includes(l.memberId));
     }
 
-    // Collect any extra custom hours
+    // Collect any extra custom hours logged by employees
     const customHours = new Set();
     logs.forEach(l => {
-      if (!STANDARD_HOURS.includes(l.hourSlot)) {
+      if (!standardHours.includes(l.hourSlot)) {
         customHours.add(l.hourSlot);
       }
     });
 
-    const allHours = [...STANDARD_HOURS, ...Array.from(customHours).sort()];
+    const allHours = [...standardHours, ...Array.from(customHours).sort()];
 
     // Build matrix
     const matrix = members.map(member => {
@@ -106,6 +128,7 @@ router.get('/matrix', async (req, res) => {
     res.json({
       success: true,
       date,
+      shift: activeShift,
       allHours,
       matrix
     });
@@ -215,8 +238,12 @@ router.get('/admin-overview', async (req, res) => {
 // GET export professional styled Microsoft Excel (.xlsx) report
 router.get('/export-excel', async (req, res) => {
   try {
-    const { date, startDate, endDate, leadId } = req.query;
+    const { date, startDate, endDate, leadId, shift } = req.query;
     const targetDate = date || new Date().toISOString().split('T')[0];
+
+    const settings = await db.getSettings();
+    const activeShift = shift || settings.currentShift || 'morning';
+    const standardHours = getHoursForShift(activeShift);
 
     let [summaries, members, logs] = await Promise.all([
       db.getDailySummary({ date: targetDate, startDate, endDate }),
@@ -236,11 +263,11 @@ router.get('/export-excel', async (req, res) => {
     // Build matrix data for Sheet 2
     const customHours = new Set();
     logs.forEach(l => {
-      if (!STANDARD_HOURS.includes(l.hourSlot)) {
+      if (!standardHours.includes(l.hourSlot)) {
         customHours.add(l.hourSlot);
       }
     });
-    const allHours = [...STANDARD_HOURS, ...Array.from(customHours).sort()];
+    const allHours = [...standardHours, ...Array.from(customHours).sort()];
 
     const matrix = members.map(member => {
       const memberLogs = logs.filter(l => l.memberId === member.id);
@@ -269,6 +296,7 @@ router.get('/export-excel', async (req, res) => {
 
     const workbook = await generateProfessionalExcelReport({
       date: targetDate,
+      shift: activeShift,
       summaries,
       matrixData: { allHours, matrix },
       hourlyLogs: logs
@@ -280,7 +308,7 @@ router.get('/export-excel', async (req, res) => {
     );
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename=LionIX-${leadId ? 'TeamLead' : 'Executive'}-WorkReport-${targetDate}.xlsx`
+      `attachment; filename=LionIX-${activeShift}-${leadId ? 'TeamLead' : 'Executive'}-${targetDate}.xlsx`
     );
 
     await workbook.xlsx.write(res);

@@ -13,12 +13,14 @@ import {
   RefreshCw,
   Table as TableIcon,
   FileText,
-  Lock
+  Lock,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { StatCard } from '../UI/StatCard.jsx';
 import { api } from '../../services/api.js';
 
-const STANDARD_HOURS = [
+export const MORNING_HOURS = [
   '09:00 AM - 10:00 AM',
   '10:00 AM - 11:00 AM',
   '11:00 AM - 12:00 PM',
@@ -30,14 +32,29 @@ const STANDARD_HOURS = [
   '05:00 PM - 06:00 PM'
 ];
 
+export const NIGHT_HOURS = [
+  '08:00 PM - 09:00 PM',
+  '09:00 PM - 10:00 PM',
+  '10:00 PM - 11:00 PM',
+  '11:00 PM - 12:00 AM',
+  '12:00 AM - 01:00 AM',
+  '01:00 AM - 02:00 AM',
+  '02:00 AM - 03:00 AM',
+  '03:00 AM - 04:00 AM',
+  '04:00 AM - 05:00 AM'
+];
+
 export const LeadPortal = ({
   currentUser,
   selectedDate,
+  currentShift = 'morning',
+  onShiftChange,
   onDateChange,
   onExportExcel,
   onExportCsv
 }) => {
   const [viewMode, setViewMode] = useState('matrix'); // 'matrix' | 'daily'
+  const [activeShift, setActiveShift] = useState(currentShift);
   const [leadData, setLeadData] = useState({
     teamMembers: [],
     teamLogs: [],
@@ -49,6 +66,10 @@ export const LeadPortal = ({
   const [matrixData, setMatrixData] = useState({ allHours: [], matrix: [] });
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    setActiveShift(currentShift);
+  }, [currentShift]);
 
   const fetchTeamData = async () => {
     if (!currentUser?.id) return;
@@ -71,21 +92,26 @@ export const LeadPortal = ({
   useEffect(() => {
     setLoading(true);
     fetchTeamData();
-  }, [currentUser?.id, selectedDate]);
+  }, [currentUser?.id, selectedDate, activeShift]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await fetchTeamData();
   };
 
+  const isNightShift = activeShift === 'night';
   const isCoordinator = (currentUser?.role || '').toLowerCase().includes('coordinator');
   const roleTitle = isCoordinator ? 'Team Coordinator' : 'Team Lead';
-  const allHours = matrixData.allHours?.length > 0 ? matrixData.allHours : STANDARD_HOURS;
+  const allHours = matrixData.allHours?.length > 0 ? matrixData.allHours : (isNightShift ? NIGHT_HOURS : MORNING_HOURS);
 
   return (
     <div className="space-y-6">
       {/* Lead Portal Banner */}
-      <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-white rounded-3xl p-6 shadow-md">
+      <div className={`text-white rounded-3xl p-6 shadow-md transition-all ${
+        isNightShift
+          ? 'bg-gradient-to-r from-indigo-700 via-purple-700 to-indigo-900 shadow-indigo-500/20'
+          : 'bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 shadow-amber-500/20'
+      }`}>
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex items-center gap-3.5">
             <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-white shadow-inner shrink-0">
@@ -99,6 +125,9 @@ export const LeadPortal = ({
                 <span className="text-xs font-bold bg-black/20 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                   <Lock className="w-3 h-3" /> View-Only Access
                 </span>
+                <span className="text-xs font-bold bg-white/20 px-2.5 py-0.5 rounded-full flex items-center gap-1 font-mono">
+                  {isNightShift ? '🌙 Night Shift: 8:00 PM – 5:00 AM' : '☀️ Morning Shift: 9:00 AM – 6:00 PM'}
+                </span>
               </div>
               <h1 className="text-xl font-extrabold tracking-tight mt-0.5">
                 {currentUser.name}’s Team Overview
@@ -111,6 +140,30 @@ export const LeadPortal = ({
 
           {/* Controls & Export Buttons */}
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Shift Switcher */}
+            <div className="flex items-center p-1 bg-white/20 rounded-2xl border border-white/20">
+              <button
+                type="button"
+                onClick={() => onShiftChange && onShiftChange('morning')}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                  !isNightShift ? 'bg-white text-amber-900 shadow-xs' : 'text-white/80 hover:text-white'
+                }`}
+              >
+                <Sun className="w-3.5 h-3.5" />
+                <span>Morning</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onShiftChange && onShiftChange('night')}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                  isNightShift ? 'bg-white text-indigo-950 shadow-xs' : 'text-white/80 hover:text-white'
+                }`}
+              >
+                <Moon className="w-3.5 h-3.5" />
+                <span>Night</span>
+              </button>
+            </div>
+
             {/* Date Picker */}
             <div className="flex items-center gap-2 bg-white/15 border border-white/25 rounded-2xl px-3 py-2 text-white">
               <Calendar className="w-4 h-4 text-amber-200" />
@@ -126,7 +179,7 @@ export const LeadPortal = ({
             <button
               type="button"
               onClick={onExportExcel}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-white hover:bg-amber-50 text-amber-900 text-xs font-black shadow-md transition-all cursor-pointer"
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-white hover:bg-amber-50 text-slate-900 text-xs font-black shadow-md transition-all cursor-pointer"
               title="Download Assigned Team Excel Report"
             >
               <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
@@ -169,7 +222,7 @@ export const LeadPortal = ({
         <StatCard
           title="Total Hours Logged"
           value={`${leadData.totalTeamHours} hrs`}
-          subtitle="9:00 AM – 6:00 PM session logs"
+          subtitle={isNightShift ? '8:00 PM – 5:00 AM night shift logs' : '9:00 AM – 6:00 PM morning shift logs'}
           icon={Clock}
           color="amber"
         />

@@ -29,10 +29,19 @@ const ZEBRA_FILL = {
 /**
  * Generate a professional executive Excel workbook for Daily and Hourly Work Reports
  */
-export async function generateProfessionalExcelReport({ date, summaries = [], matrixData = {}, hourlyLogs = [] }) {
+export async function generateProfessionalExcelReport({
+  date,
+  shift = 'morning',
+  summaries = [],
+  matrixData = {},
+  hourlyLogs = []
+}) {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'LionIX Task Report';
   workbook.created = new Date();
+
+  const isNightShift = shift === 'night';
+  const shiftLabel = isNightShift ? 'Night Shift (8:00 PM – 5:00 AM)' : 'Morning Shift (9:00 AM – 6:00 PM)';
 
   // ==========================================
   // SHEET 1: DAILY SUMMARY & WORK DESCRIPTIONS
@@ -44,9 +53,13 @@ export async function generateProfessionalExcelReport({ date, summaries = [], ma
   // 1. Title Banner
   dailySheet.mergeCells('A1:I1');
   const titleCell = dailySheet.getCell('A1');
-  titleCell.value = 'LIONIX ENTERPRISE — DAILY TASK & WORK REPORT';
-  titleCell.font = { name: 'Calibri', size: 16, bold: true, color: { argb: 'FFFFFF' } };
-  titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'D97706' } }; // Amber 600
+  titleCell.value = `LIONIX ENTERPRISE — DAILY WORK REPORT (${shiftLabel.toUpperCase()})`;
+  titleCell.font = { name: 'Calibri', size: 15, bold: true, color: { argb: 'FFFFFF' } };
+  titleCell.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: isNightShift ? '4F46E5' : 'D97706' }
+  };
   titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
   dailySheet.getRow(1).height = 36;
 
@@ -55,9 +68,9 @@ export async function generateProfessionalExcelReport({ date, summaries = [], ma
   const metaCell = dailySheet.getCell('A2');
   const totalTasksAll = summaries.reduce((acc, s) => acc + (Number(s.totalTasks) || 0), 0);
   const totalHoursAll = summaries.reduce((acc, s) => acc + (Number(s.hoursWorked) || 0), 0);
-  metaCell.value = `Report Date: ${date || 'All Dates'}   |   Total Active Members: ${summaries.length}   |   Total Team Tasks Completed: ${totalTasksAll}   |   Total Hours: ${totalHoursAll} hrs`;
+  metaCell.value = `Report Date: ${date || 'All Dates'}   |   Shift: ${shiftLabel}   |   Total Active Members: ${summaries.length}   |   Team Tasks Completed: ${totalTasksAll}   |   Total Hours: ${totalHoursAll} hrs`;
   metaCell.font = { name: 'Calibri', size: 10, italic: true, bold: true, color: { argb: '475569' } };
-  metaCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FEF3C7' } }; // Light Amber
+  metaCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isNightShift ? 'E0E7FF' : 'FEF3C7' } };
   metaCell.alignment = { vertical: 'middle', horizontal: 'center' };
   dailySheet.getRow(2).height = 24;
 
@@ -133,7 +146,7 @@ export async function generateProfessionalExcelReport({ date, summaries = [], ma
         cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: '0F172A' } };
         cell.alignment = { vertical: 'middle', horizontal: 'left' };
       } else if (colNumber === 6) {
-        cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'D97706' } };
+        cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: isNightShift ? '4F46E5' : 'D97706' } };
         cell.alignment = { vertical: 'middle', horizontal: 'right' };
         cell.numFmt = '#,##0';
       } else if (colNumber === 8) {
@@ -159,7 +172,7 @@ export async function generateProfessionalExcelReport({ date, summaries = [], ma
     `${totalHoursAll} hrs`,
     summaries.length > 0 ? (totalTasksAll / summaries.length).toFixed(1) : '0.0',
     'Team Total Output',
-    'Aggregated daily output across all members'
+    'Aggregated output across all members'
   ]);
   totalRow.height = 26;
   totalRow.eachCell((cell, colNumber) => {
@@ -173,7 +186,7 @@ export async function generateProfessionalExcelReport({ date, summaries = [], ma
     };
     if (colNumber === 6) {
       cell.alignment = { vertical: 'middle', horizontal: 'right' };
-      cell.font = { name: 'Calibri', size: 12, bold: true, color: { argb: 'B45309' } };
+      cell.font = { name: 'Calibri', size: 12, bold: true, color: { argb: isNightShift ? '4338CA' : 'B45309' } };
     } else if (colNumber === 7 || colNumber === 1 || colNumber === 5) {
       cell.alignment = { vertical: 'middle', horizontal: 'center' };
     } else {
@@ -196,35 +209,29 @@ export async function generateProfessionalExcelReport({ date, summaries = [], ma
   ];
 
   // ==========================================
-  // SHEET 2: 9:00 AM – 6:00 PM HOURLY MATRIX
+  // SHEET 2: HOURLY WORK MATRIX
   // ==========================================
   if (matrixData.matrix && matrixData.matrix.length > 0) {
     const matrixSheet = workbook.addWorksheet('Hourly Work Matrix', {
       views: [{ showGridLines: true }]
     });
 
+    const standardHours = matrixData.allHours || [];
+
     // 1. Matrix Title
-    matrixSheet.mergeCells('A1:L1');
+    matrixSheet.mergeCells(`A1:${String.fromCharCode(65 + standardHours.length + 3)}1`);
     const mTitle = matrixSheet.getCell('A1');
-    mTitle.value = 'LIONIX ENTERPRISE — 9:00 AM TO 6:00 PM HOURLY WORK MATRIX';
+    mTitle.value = `LIONIX ENTERPRISE — ${shiftLabel.toUpperCase()} HOURLY WORK MATRIX`;
     mTitle.font = { name: 'Calibri', size: 15, bold: true, color: { argb: 'FFFFFF' } };
-    mTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0284C7' } }; // Sky 600
+    mTitle.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: isNightShift ? '4338CA' : '0284C7' }
+    };
     mTitle.alignment = { vertical: 'middle', horizontal: 'center' };
     matrixSheet.getRow(1).height = 34;
 
     // 2. Matrix Headers
-    const standardHours = matrixData.allHours || [
-      '09:00 AM - 10:00 AM',
-      '10:00 AM - 11:00 AM',
-      '11:00 AM - 12:00 PM',
-      '12:00 PM - 01:00 PM',
-      '01:00 PM - 02:00 PM',
-      '02:00 PM - 03:00 PM',
-      '03:00 PM - 04:00 PM',
-      '04:00 PM - 05:00 PM',
-      '05:00 PM - 06:00 PM'
-    ];
-
     const mHeaders = ['#', 'Team Member', 'Role', ...standardHours.map(h => h.split(' - ')[0]), 'Total Tasks'];
     const mHeaderRow = matrixSheet.addRow(mHeaders);
     mHeaderRow.height = 28;
@@ -268,7 +275,7 @@ export async function generateProfessionalExcelReport({ date, summaries = [], ma
           cell.font = { name: 'Calibri', size: 10, bold: true };
           cell.alignment = { vertical: 'middle', horizontal: 'left' };
         } else if (colNumber === mHeaders.length) {
-          cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'D97706' } };
+          cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: isNightShift ? '4F46E5' : 'D97706' } };
           cell.alignment = { vertical: 'middle', horizontal: 'right' };
         } else {
           cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
