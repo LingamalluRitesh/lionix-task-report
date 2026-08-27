@@ -44,6 +44,48 @@ export const NIGHT_HOURS = [
   '04:00 AM - 05:00 AM'
 ];
 
+export function getLeadLogCellData(log) {
+  if (!log) return { type: 'empty' };
+
+  const statusLower = (log.status || '').trim().toLowerCase();
+  const notes = (log.notes || '').trim();
+  const notesLower = notes.toLowerCase();
+  const tasks = Number(log.taskCount) || 0;
+
+  if (statusLower === 'on leave' || statusLower === 'leave' || notesLower === 'leave' || notesLower === 'on leave') {
+    return {
+      type: 'leave',
+      label: 'Leave',
+      notes: notesLower === 'leave' || notesLower === 'on leave' ? '' : notes
+    };
+  }
+
+  if (statusLower === 'lunch break' || statusLower === 'lunch' || notesLower === 'lunch' || notesLower === 'lunch break') {
+    return {
+      type: 'lunch',
+      label: 'Lunch',
+      notes: notesLower === 'lunch' || notesLower === 'lunch break' ? '' : notes
+    };
+  }
+
+  if (tasks > 0) {
+    return {
+      type: 'tasks',
+      tasks,
+      notes
+    };
+  }
+
+  if (notes.length > 0) {
+    return {
+      type: 'notes_only',
+      notes
+    };
+  }
+
+  return { type: 'empty' };
+}
+
 export const LeadPortal = ({
   currentUser,
   selectedDate,
@@ -279,7 +321,7 @@ export const LeadPortal = ({
                 <tr className="border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   <th className="py-3 px-3 sticky left-0 bg-white z-10 w-52">Assigned Teammate</th>
                   {allHours.map(hour => (
-                    <th key={hour} className="py-3 px-2 text-center font-mono whitespace-nowrap min-w-[105px]">
+                    <th key={hour} className="py-3 px-2 text-center font-mono whitespace-nowrap min-w-[110px]">
                       {hour.split(' - ')[0]}
                     </th>
                   ))}
@@ -306,37 +348,71 @@ export const LeadPortal = ({
                         </div>
                       </td>
 
-                      {/* Hourly Cells (View-Only) */}
+                      {/* Hourly Cells (View-Only with Leave in Red, Lunch in Amber, Notes below tasks) */}
                       {allHours.map(hour => {
                         const log = row.hours ? row.hours[hour] : null;
-                        const tasks = log ? Number(log.taskCount) || 0 : 0;
-                        const hasNotes = Boolean(log && log.notes && log.notes.trim().length > 0);
+                        const cellData = getLeadLogCellData(log);
 
                         let cellClass = 'bg-slate-50 text-slate-400 border-slate-200';
-                        if (tasks > 0) {
+                        if (cellData.type === 'leave') {
+                          cellClass = 'bg-rose-50/80 text-rose-700 border-rose-300 font-bold';
+                        } else if (cellData.type === 'lunch') {
+                          cellClass = 'bg-amber-50/80 text-amber-900 border-amber-300 font-bold';
+                        } else if (cellData.type === 'tasks') {
                           cellClass = 'bg-emerald-50 text-emerald-900 border-emerald-200 font-bold';
-                        } else if (hasNotes) {
-                          cellClass = 'bg-amber-50 text-amber-900 border-amber-200 font-medium';
+                        } else if (cellData.type === 'notes_only') {
+                          cellClass = 'bg-slate-50 text-slate-900 border-slate-300 font-medium';
                         }
 
                         return (
                           <td key={hour} className="py-2 px-1 text-center">
                             <div className={`w-full py-2 px-1.5 rounded-xl border text-center transition-all shadow-2xs ${cellClass}`}>
-                              {log ? (
-                                <div className="flex flex-col items-center justify-center overflow-hidden gap-0.5">
+                              {cellData.type === 'leave' ? (
+                                <div className="flex flex-col items-center justify-center gap-0.5">
+                                  <span className="text-[11px] font-black text-rose-700 bg-rose-100 px-2 py-0.5 rounded-md border border-rose-200 uppercase tracking-wide">
+                                    Leave
+                                  </span>
+                                  {cellData.notes ? (
+                                    <span className="text-[9px] font-medium text-rose-900 bg-white/90 px-1 py-0.5 rounded border border-rose-200/60 truncate max-w-[95px] block mt-0.5" title={cellData.notes}>
+                                      {cellData.notes}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              ) : cellData.type === 'lunch' ? (
+                                <div className="flex flex-col items-center justify-center gap-0.5">
+                                  <span className="text-[11px] font-black text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200 flex items-center gap-1">
+                                    🍱 Lunch
+                                  </span>
+                                  {cellData.notes ? (
+                                    <span className="text-[9px] font-medium text-amber-900 bg-white/90 px-1 py-0.5 rounded border border-amber-200/60 truncate max-w-[95px] block mt-0.5" title={cellData.notes}>
+                                      {cellData.notes}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              ) : cellData.type === 'tasks' ? (
+                                <div className="flex flex-col items-center justify-center overflow-hidden gap-1">
                                   <div className="flex items-center gap-1 font-mono">
-                                    <span className="text-xs font-black">{tasks}</span>
-                                    <span className="text-[9px] font-bold opacity-75">tasks</span>
+                                    <span className="text-xs font-black text-emerald-800">{cellData.tasks}</span>
+                                    <span className="text-[9px] font-bold text-emerald-600">tasks</span>
                                   </div>
-                                  {log.notes ? (
-                                    <span className="text-[9px] font-medium text-slate-700 bg-white/80 px-1 py-0.5 rounded border border-slate-200/60 truncate max-w-[95px] block" title={log.notes}>
-                                      {log.notes}
+                                  {cellData.notes ? (
+                                    <span className="text-[9px] font-medium text-slate-700 bg-white px-1.5 py-0.5 rounded border border-slate-200/80 truncate max-w-[95px] block shadow-2xs" title={cellData.notes}>
+                                      {cellData.notes}
                                     </span>
                                   ) : (
                                     <span className="text-[9px] font-medium text-slate-400 opacity-80 truncate max-w-[85px]">
                                       {log.projectName ? log.projectName.split(' ')[0] : 'Done'}
                                     </span>
                                   )}
+                                </div>
+                              ) : cellData.type === 'notes_only' ? (
+                                <div className="flex flex-col items-center justify-center gap-0.5">
+                                  <span className="text-[10px] font-bold text-slate-800 bg-white px-1.5 py-0.5 rounded border border-slate-200 truncate max-w-[95px] block shadow-2xs" title={cellData.notes}>
+                                    {cellData.notes}
+                                  </span>
+                                  <span className="text-[9px] text-slate-400 font-medium opacity-80 truncate max-w-[85px]">
+                                    {log.projectName ? log.projectName.split(' ')[0] : 'Note'}
+                                  </span>
                                 </div>
                               ) : (
                                 <span className="text-slate-300 text-xs">-</span>
@@ -384,7 +460,7 @@ export const LeadPortal = ({
               <tbody className="divide-y divide-slate-100 text-xs">
                 {leadData.teamSummaries && leadData.teamSummaries.length > 0 ? (
                   leadData.teamSummaries.map((summary) => {
-                    const notesList = (summary.logs || []).filter(l => (l.notes && l.notes.trim().length > 0) || Number(l.taskCount) > 0);
+                    const notesList = (summary.logs || []).filter(l => (l.notes && l.notes.trim().length > 0) || Number(l.taskCount) > 0 || l.status === 'On Leave' || l.status === 'Lunch Break');
 
                     return (
                       <tr key={summary.memberId} className="hover:bg-slate-50/70 transition-colors">
@@ -435,14 +511,23 @@ export const LeadPortal = ({
 
                         <td className="py-3.5">
                           <div className="space-y-1 max-w-xs">
-                            {notesList.map((l, i) => (
-                              <div key={i} className="text-[11px] bg-slate-50 border border-slate-200/70 rounded-lg px-2 py-0.5 flex items-start gap-1.5 text-slate-700">
-                                <span className="font-mono font-extrabold text-amber-700 shrink-0 text-[10px]">
-                                  {l.hourSlot ? l.hourSlot.split(' - ')[0] : 'Log'}:
-                                </span>
-                                <span className="truncate">{l.notes || `${l.taskCount} tasks`}</span>
-                              </div>
-                            ))}
+                            {notesList.map((l, i) => {
+                              const cellData = getLeadLogCellData(l);
+                              return (
+                                <div key={i} className="text-[11px] bg-slate-50 border border-slate-200/70 rounded-lg px-2 py-0.5 flex items-start gap-1.5 text-slate-700">
+                                  <span className="font-mono font-extrabold text-amber-700 shrink-0 text-[10px]">
+                                    {l.hourSlot ? l.hourSlot.split(' - ')[0] : 'Log'}:
+                                  </span>
+                                  {cellData.type === 'leave' ? (
+                                    <span className="text-rose-700 font-extrabold">🏖️ On Leave {cellData.notes ? ` - ${cellData.notes}` : ''}</span>
+                                  ) : cellData.type === 'lunch' ? (
+                                    <span className="text-amber-800 font-bold">🍱 Lunch Break {cellData.notes ? ` - ${cellData.notes}` : ''}</span>
+                                  ) : (
+                                    <span className="truncate">{l.notes || `${l.taskCount} tasks`}</span>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         </td>
                       </tr>

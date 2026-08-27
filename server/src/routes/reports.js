@@ -340,13 +340,29 @@ router.get('/export-csv', async (req, res) => {
         
         // Collect and format all work descriptions logged throughout the day
         const descriptions = (s.logs || [])
-          .filter(l => (l.notes && l.notes.trim().length > 0) || Number(l.taskCount) > 0)
+          .filter(l => (l.notes && l.notes.trim().length > 0) || Number(l.taskCount) > 0 || l.status === 'On Leave' || l.status === 'Lunch Break')
           .map(l => {
             const time = l.hourSlot ? l.hourSlot.split(' - ')[0] : '';
-            const taskStr = `${l.taskCount} tasks`;
-            const noteStr = l.notes ? ` - ${l.notes.replace(/"/g, '""')}` : '';
+            const statusLower = (l.status || '').toLowerCase();
+            const notes = (l.notes || '').trim().replace(/"/g, '""');
+            const notesLower = notes.toLowerCase();
+            const tasks = Number(l.taskCount) || 0;
             const proj = l.projectName || 'General';
-            return `[${time} ${proj}] ${taskStr}${noteStr}`;
+
+            if (statusLower === 'on leave' || statusLower === 'leave' || notesLower === 'leave' || notesLower === 'on leave') {
+              return `[${time}] [ON LEAVE]${notes && notesLower !== 'leave' && notesLower !== 'on leave' ? ` - ${notes}` : ''}`;
+            }
+            if (statusLower === 'lunch break' || statusLower === 'lunch' || notesLower === 'lunch' || notesLower === 'lunch break') {
+              return `[${time}] [LUNCH BREAK]${notes && notesLower !== 'lunch' && notesLower !== 'lunch break' ? ` - ${notes}` : ''}`;
+            }
+            if (tasks > 0) {
+              const noteStr = notes ? ` - ${notes}` : '';
+              return `[${time} ${proj}] ${tasks} tasks${noteStr}`;
+            }
+            if (notes) {
+              return `[${time} ${proj}] ${notes}`;
+            }
+            return `[${time} ${proj}] Completed`;
           })
           .join('; ');
 

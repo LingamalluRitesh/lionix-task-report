@@ -10,7 +10,10 @@ import {
   ListTodo,
   Target,
   Sun,
-  Moon
+  Moon,
+  Coffee,
+  CalendarOff,
+  Sparkles
 } from 'lucide-react';
 
 export const MORNING_HOURS = [
@@ -162,6 +165,122 @@ export const HourlyTaskGrid = ({
     }
   };
 
+  // Quick Lunch Action for a Slot
+  const handleQuickLunch = async (slot) => {
+    if (projects.length === 0) {
+      alert('Please ask your Administrator to add projects first.');
+      return;
+    }
+
+    const current = formState[slot] || {};
+    const updated = {
+      ...current,
+      id: current.id || null,
+      memberId,
+      date: selectedDate,
+      hourSlot: slot,
+      projectId: current.projectId || projects[0]?.id,
+      projectName: current.projectName || projects[0]?.name,
+      taskCount: 0,
+      notes: current.notes && !current.notes.toLowerCase().includes('lunch') ? current.notes : 'Lunch Break',
+      status: 'Lunch Break'
+    };
+
+    setSavingSlot(slot);
+    try {
+      await onSaveLog(updated);
+      setFormState(prev => ({
+        ...prev,
+        [slot]: {
+          ...updated,
+          isDirty: false,
+          isSaved: true
+        }
+      }));
+    } finally {
+      setSavingSlot(null);
+    }
+  };
+
+  // Quick Leave Action for a Slot
+  const handleQuickLeave = async (slot) => {
+    if (projects.length === 0) {
+      alert('Please ask your Administrator to add projects first.');
+      return;
+    }
+
+    const current = formState[slot] || {};
+    const updated = {
+      ...current,
+      id: current.id || null,
+      memberId,
+      date: selectedDate,
+      hourSlot: slot,
+      projectId: current.projectId || projects[0]?.id,
+      projectName: current.projectName || projects[0]?.name,
+      taskCount: 0,
+      notes: current.notes && !current.notes.toLowerCase().includes('leave') ? current.notes : 'On Leave',
+      status: 'On Leave'
+    };
+
+    setSavingSlot(slot);
+    try {
+      await onSaveLog(updated);
+      setFormState(prev => ({
+        ...prev,
+        [slot]: {
+          ...updated,
+          isDirty: false,
+          isSaved: true
+        }
+      }));
+    } finally {
+      setSavingSlot(null);
+    }
+  };
+
+  // Full Day On Leave Action
+  const handleMarkDayOnLeave = async () => {
+    if (projects.length === 0) {
+      alert('Please ask your Administrator to add projects first.');
+      return;
+    }
+
+    if (!window.confirm(`Mark your entire schedule for ${selectedDate} as ON LEAVE?`)) {
+      return;
+    }
+
+    for (const slot of activeHours) {
+      const current = formState[slot] || {};
+      await onSaveLog({
+        id: current.id || null,
+        memberId,
+        date: selectedDate,
+        hourSlot: slot,
+        projectId: current.projectId || projects[0]?.id,
+        projectName: current.projectName || projects[0]?.name,
+        taskCount: 0,
+        notes: 'On Leave',
+        status: 'On Leave'
+      });
+    }
+
+    setFormState(prev => {
+      const nextState = { ...prev };
+      activeHours.forEach(slot => {
+        nextState[slot] = {
+          ...(prev[slot] || {}),
+          taskCount: 0,
+          notes: 'On Leave',
+          status: 'On Leave',
+          isDirty: false,
+          isSaved: true
+        };
+      });
+      return nextState;
+    });
+  };
+
   const handleDelete = async (slot) => {
     const data = formState[slot];
     if (!data || !data.id) {
@@ -225,37 +344,51 @@ export const HourlyTaskGrid = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Log your hourly task count and work description for each session.
+                Log your hourly task count, lunch break, leave status, or work description.
               </p>
             </div>
           </div>
 
-          {/* Shift Switcher Toggle */}
-          <div className="flex items-center p-1 bg-slate-100 rounded-2xl border border-slate-200/80">
+          {/* Quick Actions & Shift Switcher */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Mark Day as On Leave */}
             <button
               type="button"
-              onClick={() => handleShiftSwitch('morning')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-                activeShift === 'morning'
-                  ? 'bg-white text-amber-700 shadow-xs ring-1 ring-amber-200'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
+              onClick={handleMarkDayOnLeave}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-all shadow-xs cursor-pointer"
+              title="Quickly mark entire day as On Leave"
             >
-              <Sun className="w-3.5 h-3.5 text-amber-500" />
-              <span>Morning (9AM-6PM)</span>
+              <CalendarOff className="w-3.5 h-3.5 text-rose-600" />
+              <span>Mark Day On Leave</span>
             </button>
-            <button
-              type="button"
-              onClick={() => handleShiftSwitch('night')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-                activeShift === 'night'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              <Moon className="w-3.5 h-3.5 text-indigo-300" />
-              <span>Night (8PM-5AM)</span>
-            </button>
+
+            {/* Shift Switcher Toggle */}
+            <div className="flex items-center p-1 bg-slate-100 rounded-2xl border border-slate-200/80">
+              <button
+                type="button"
+                onClick={() => handleShiftSwitch('morning')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                  activeShift === 'morning'
+                    ? 'bg-white text-amber-700 shadow-xs ring-1 ring-amber-200'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <Sun className="w-3.5 h-3.5 text-amber-500" />
+                <span>Morning (9AM-6PM)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleShiftSwitch('night')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                  activeShift === 'night'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <Moon className="w-3.5 h-3.5 text-indigo-300" />
+                <span>Night (8PM-5AM)</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -307,27 +440,38 @@ export const HourlyTaskGrid = ({
             isSaved: false
           };
 
+          const isLeave = entry.status === 'On Leave' || entry.notes?.toLowerCase() === 'on leave' || entry.notes?.toLowerCase() === 'leave';
+          const isLunch = entry.status === 'Lunch Break' || entry.notes?.toLowerCase().includes('lunch');
           const isSaved = entry.isSaved && !entry.isDirty && entry.id;
           const isDirty = entry.isDirty;
           const isSaving = savingSlot === slot;
 
+          let rowBgClass = 'bg-white border-slate-200 hover:border-slate-300 shadow-xs';
+          if (isLeave) {
+            rowBgClass = 'bg-rose-50/40 border-rose-200 hover:border-rose-300 shadow-xs';
+          } else if (isLunch) {
+            rowBgClass = 'bg-amber-50/40 border-amber-200 hover:border-amber-300 shadow-xs';
+          } else if (isSaved) {
+            rowBgClass = 'bg-emerald-50/30 border-emerald-200/80 shadow-xs hover:border-emerald-300';
+          } else if (isDirty) {
+            rowBgClass = 'bg-amber-50/40 border-amber-300 shadow-sm ring-1 ring-amber-200';
+          }
+
           return (
             <div
               key={slot}
-              className={`p-4 rounded-3xl border transition-all duration-200 ${
-                isSaved
-                  ? 'bg-emerald-50/30 border-emerald-200/80 shadow-xs hover:border-emerald-300'
-                  : isDirty
-                  ? 'bg-amber-50/40 border-amber-300 shadow-sm ring-1 ring-amber-200'
-                  : 'bg-white border-slate-200 hover:border-slate-300 shadow-xs'
-              }`}
+              className={`p-4 rounded-3xl border transition-all duration-200 ${rowBgClass}`}
             >
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-center">
-                {/* 1. Time Slot & Number (3 cols) */}
+                {/* 1. Time Slot & Status Badge (3 cols) */}
                 <div className="lg:col-span-3">
                   <div className="flex items-center gap-2.5">
                     <span className={`flex items-center justify-center w-8 h-8 rounded-xl text-xs font-mono font-extrabold shrink-0 ${
-                      activeShift === 'night'
+                      isLeave
+                        ? 'bg-rose-100 text-rose-900'
+                        : isLunch
+                        ? 'bg-amber-100 text-amber-900'
+                        : activeShift === 'night'
                         ? 'bg-indigo-100/80 text-indigo-900'
                         : 'bg-amber-100/70 text-amber-900'
                     }`}>
@@ -338,7 +482,15 @@ export const HourlyTaskGrid = ({
                         {slot}
                       </span>
                       <div className="flex items-center gap-1.5 mt-0.5">
-                        {isSaved ? (
+                        {isLeave ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-md border border-rose-200">
+                            🏖️ On Leave
+                          </span>
+                        ) : isLunch ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200">
+                            🍱 Lunch Break
+                          </span>
+                        ) : isSaved ? (
                           <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-700 bg-emerald-100/60 px-2 py-0.5 rounded-md">
                             <Check className="w-3 h-3" /> Logged &amp; Saved
                           </span>
@@ -389,8 +541,8 @@ export const HourlyTaskGrid = ({
                     <input
                       type="number"
                       min="0"
-                      disabled={!hasProjects}
-                      placeholder="0"
+                      disabled={!hasProjects || isLeave || isLunch}
+                      placeholder={isLeave ? 'Leave' : isLunch ? 'Lunch' : '0'}
                       value={entry.taskCount === 0 ? '' : entry.taskCount}
                       onChange={(e) => {
                         const val = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0);
@@ -399,7 +551,7 @@ export const HourlyTaskGrid = ({
                       className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs font-extrabold rounded-2xl pl-3 pr-12 py-2.5 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none hover:border-slate-300 transition-all shadow-xs font-mono disabled:bg-slate-100 disabled:cursor-not-allowed"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-extrabold text-slate-400 uppercase pointer-events-none">
-                      Tasks
+                      {isLeave ? 'OFF' : isLunch ? 'BREAK' : 'Tasks'}
                     </span>
                   </div>
                 </div>
@@ -412,31 +564,62 @@ export const HourlyTaskGrid = ({
                   <input
                     type="text"
                     disabled={!hasProjects}
-                    placeholder="Enter work details / description..."
+                    placeholder={isLeave ? 'On Leave' : isLunch ? 'Lunch Break' : 'Enter work details / description...'}
                     value={entry.notes || ''}
                     onChange={(e) => handleFieldChange(slot, 'notes', e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-2xl px-3.5 py-2.5 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none hover:border-slate-300 transition-all shadow-xs disabled:bg-slate-100 disabled:cursor-not-allowed font-medium"
                   />
                 </div>
 
-                {/* 5. Done Status & Save Action (2 cols) */}
-                <div className="lg:col-span-2 flex items-center justify-end gap-1.5">
+                {/* 5. Quick Lunch/Leave & Status & Save Action (2 cols) */}
+                <div className="lg:col-span-2 flex items-center justify-end gap-1.5 flex-wrap sm:flex-nowrap">
+                  {/* Quick Lunch Button */}
+                  <button
+                    type="button"
+                    onClick={() => handleQuickLunch(slot)}
+                    disabled={!hasProjects}
+                    className="p-2 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-[11px] font-bold transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+                    title="Quickly set this slot as Lunch Break"
+                  >
+                    <Coffee className="w-3.5 h-3.5 text-amber-600" />
+                  </button>
+
+                  {/* Status Dropdown */}
                   <select
                     value={entry.status || 'Completed'}
                     disabled={!hasProjects}
-                    onChange={(e) => handleFieldChange(slot, 'status', e.target.value)}
-                    className="bg-slate-50 border border-slate-200 text-[11px] font-bold rounded-2xl px-2 py-2.5 text-slate-700 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none cursor-pointer shadow-xs disabled:bg-slate-100 disabled:cursor-not-allowed"
+                    onChange={(e) => {
+                      const newStatus = e.target.value;
+                      handleFieldChange(slot, 'status', newStatus);
+                      if (newStatus === 'Lunch Break' && !entry.notes) {
+                        handleFieldChange(slot, 'notes', 'Lunch Break');
+                        handleFieldChange(slot, 'taskCount', 0);
+                      } else if (newStatus === 'On Leave' && !entry.notes) {
+                        handleFieldChange(slot, 'notes', 'On Leave');
+                        handleFieldChange(slot, 'taskCount', 0);
+                      }
+                    }}
+                    className={`border text-[11px] font-bold rounded-2xl px-2 py-2.5 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none cursor-pointer shadow-xs disabled:bg-slate-100 disabled:cursor-not-allowed ${
+                      isLeave
+                        ? 'bg-rose-50 text-rose-700 border-rose-300'
+                        : isLunch
+                        ? 'bg-amber-50 text-amber-800 border-amber-300'
+                        : 'bg-slate-50 text-slate-700 border-slate-200'
+                    }`}
                   >
                     <option value="Completed">✓ Done</option>
                     <option value="In Progress">⏳ Progress</option>
                     <option value="Blocked">⚠️ Blocked</option>
+                    <option value="Lunch Break">🍱 Lunch</option>
+                    <option value="On Leave">🏖️ Leave</option>
                   </select>
 
+                  {/* Save Button */}
                   <button
                     type="button"
                     onClick={() => handleSave(slot)}
                     disabled={isSaving || !hasProjects}
-                    className={`flex items-center gap-1 px-3.5 py-2.5 rounded-2xl text-xs font-extrabold transition-all shadow-xs cursor-pointer ${
+                    className={`flex items-center gap-1 px-3 py-2.5 rounded-2xl text-xs font-extrabold transition-all shadow-xs cursor-pointer ${
                       !hasProjects
                         ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                         : isDirty

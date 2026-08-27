@@ -104,14 +104,30 @@ export async function generateProfessionalExcelReport({
   summaries.forEach((s, idx) => {
     const projBreakdownStr = (s.projectsList || []).map(p => `${p.projectName} (${p.tasks} tasks)`).join('; ');
     
-    // Detailed notes
+    // Format descriptions handling Leave, Lunch, Task counts and work notes
     const descriptions = (s.logs || [])
-      .filter(l => (l.notes && l.notes.trim().length > 0) || Number(l.taskCount) > 0)
+      .filter(l => (l.notes && l.notes.trim().length > 0) || Number(l.taskCount) > 0 || l.status === 'On Leave' || l.status === 'Lunch Break')
       .map(l => {
         const time = l.hourSlot ? l.hourSlot.split(' - ')[0] : '';
-        const taskStr = `${l.taskCount} tasks`;
-        const noteStr = l.notes ? ` : ${l.notes}` : '';
-        return `[${time}] ${taskStr}${noteStr}`;
+        const statusLower = (l.status || '').toLowerCase();
+        const notes = (l.notes || '').trim();
+        const notesLower = notes.toLowerCase();
+        const tasks = Number(l.taskCount) || 0;
+
+        if (statusLower === 'on leave' || statusLower === 'leave' || notesLower === 'leave' || notesLower === 'on leave') {
+          return `[${time}] [ON LEAVE]${notes && notesLower !== 'leave' && notesLower !== 'on leave' ? ` : ${notes}` : ''}`;
+        }
+        if (statusLower === 'lunch break' || statusLower === 'lunch' || notesLower === 'lunch' || notesLower === 'lunch break') {
+          return `[${time}] [LUNCH BREAK]${notes && notesLower !== 'lunch' && notesLower !== 'lunch break' ? ` : ${notes}` : ''}`;
+        }
+        if (tasks > 0) {
+          const noteStr = notes ? ` : ${notes}` : '';
+          return `[${time}] ${tasks} tasks${noteStr}`;
+        }
+        if (notes) {
+          return `[${time}] ${notes}`;
+        }
+        return `[${time}] Completed`;
       })
       .join('\n');
 
@@ -248,9 +264,26 @@ export async function generateProfessionalExcelReport({
       const hourCells = standardHours.map(h => {
         const log = row.hours ? row.hours[h] : null;
         if (!log) return '-';
+
+        const statusLower = (log.status || '').toLowerCase();
+        const notes = (log.notes || '').trim();
+        const notesLower = notes.toLowerCase();
         const tasks = Number(log.taskCount) || 0;
-        const notes = log.notes ? `\n(${log.notes})` : '';
-        return `${tasks} tasks${notes}`;
+
+        if (statusLower === 'on leave' || statusLower === 'leave' || notesLower === 'leave' || notesLower === 'on leave') {
+          return notes && notesLower !== 'leave' && notesLower !== 'on leave' ? `[LEAVE]\n${notes}` : 'LEAVE';
+        }
+        if (statusLower === 'lunch break' || statusLower === 'lunch' || notesLower === 'lunch' || notesLower === 'lunch break') {
+          return notes && notesLower !== 'lunch' && notesLower !== 'lunch break' ? `[LUNCH]\n${notes}` : 'LUNCH';
+        }
+        if (tasks > 0) {
+          const noteStr = notes ? `\n${notes}` : '';
+          return `${tasks} tasks${noteStr}`;
+        }
+        if (notes) {
+          return notes; // Only work description clearly, without "0 tasks"!
+        }
+        return '-';
       });
 
       const rowValues = [
@@ -268,6 +301,15 @@ export async function generateProfessionalExcelReport({
         cell.border = BORDER_STYLE;
         cell.font = { name: 'Calibri', size: 9.5 };
         if (!isEven) cell.fill = ZEBRA_FILL;
+
+        const cellVal = String(cell.value || '');
+        if (cellVal.includes('LEAVE')) {
+          cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'E11D48' } }; // Rose red
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE4E6' } }; // Soft light rose
+        } else if (cellVal.includes('LUNCH')) {
+          cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'D97706' } }; // Amber
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FEF3C7' } }; // Soft light amber
+        }
 
         if (colNumber === 1) {
           cell.alignment = { vertical: 'middle', horizontal: 'center' };

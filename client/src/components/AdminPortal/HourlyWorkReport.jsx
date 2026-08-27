@@ -13,8 +13,56 @@ import {
   FileText,
   FileSpreadsheet,
   Sun,
-  Moon
+  Moon,
+  Coffee,
+  CalendarOff
 } from 'lucide-react';
+
+export function getLogCellData(log) {
+  if (!log) return { type: 'empty' };
+
+  const statusLower = (log.status || '').trim().toLowerCase();
+  const notes = (log.notes || '').trim();
+  const notesLower = notes.toLowerCase();
+  const tasks = Number(log.taskCount) || 0;
+
+  // 1. Check Leave
+  if (statusLower === 'on leave' || statusLower === 'leave' || notesLower === 'leave' || notesLower === 'on leave') {
+    return {
+      type: 'leave',
+      label: 'Leave',
+      notes: notesLower === 'leave' || notesLower === 'on leave' ? '' : notes
+    };
+  }
+
+  // 2. Check Lunch
+  if (statusLower === 'lunch break' || statusLower === 'lunch' || notesLower === 'lunch' || notesLower === 'lunch break') {
+    return {
+      type: 'lunch',
+      label: 'Lunch',
+      notes: notesLower === 'lunch' || notesLower === 'lunch break' ? '' : notes
+    };
+  }
+
+  // 3. Tasks > 0
+  if (tasks > 0) {
+    return {
+      type: 'tasks',
+      tasks,
+      notes
+    };
+  }
+
+  // 4. Notes only (without task count)
+  if (notes.length > 0) {
+    return {
+      type: 'notes_only',
+      notes
+    };
+  }
+
+  return { type: 'empty' };
+}
 
 export const HourlyWorkReport = ({
   matrixData = { allHours: [], matrix: [] },
@@ -83,7 +131,7 @@ export const HourlyWorkReport = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Displays exact task counts and work info descriptions side by side across all employee sessions.
+                Displays task counts &amp; work descriptions below each task, with red badges for Leave and lunch breaks.
               </p>
             </div>
           </div>
@@ -194,12 +242,13 @@ export const HourlyWorkReport = ({
                 {isNightShift ? '8:00 PM – 5:00 AM Night Shift Matrix' : '9:00 AM – 6:00 PM Morning Shift Matrix'}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Displays task counts &amp; work description text side by side. Click any cell to inspect or edit.
+                Displays task counts &amp; work descriptions below each task. Shows red badges for Leave and lunch breaks.
               </p>
             </div>
-            <div className="flex items-center gap-2 text-xs text-slate-500">
+            <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-slate-100 border border-slate-200"></span> None</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-50 border border-amber-300"></span> Info Logged</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-rose-100 border border-rose-300"></span> Leave (Red)</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-100 border border-amber-300"></span> Lunch Break</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-300"></span> Tasks Done</span>
             </div>
           </div>
@@ -210,7 +259,7 @@ export const HourlyWorkReport = ({
                 <tr className="border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   <th className="py-3 px-3 sticky left-0 bg-white z-10 w-52 shadow-r">Team Member</th>
                   {allHours.map(hour => (
-                    <th key={hour} className="py-3 px-2 text-center font-mono whitespace-nowrap min-w-[105px]">
+                    <th key={hour} className="py-3 px-2 text-center font-mono whitespace-nowrap min-w-[110px]">
                       {hour.split(' - ')[0]}
                     </th>
                   ))}
@@ -237,17 +286,20 @@ export const HourlyWorkReport = ({
                         </div>
                       </td>
 
-                      {/* Hourly Cells (Shows Task Count AND Work Info side-by-side) */}
+                      {/* Hourly Cells (Leave in Red, Lunch in Amber, Notes below tasks, or Notes only without 0 tasks) */}
                       {allHours.map(hour => {
                         const log = row.hours[hour];
-                        const tasks = log ? Number(log.taskCount) || 0 : 0;
-                        const hasNotes = Boolean(log && log.notes && log.notes.trim().length > 0);
-                        
+                        const cellData = getLogCellData(log);
+
                         let cellClass = 'bg-slate-50 text-slate-400 border-slate-200 hover:border-slate-300 hover:bg-slate-100';
-                        if (tasks > 0) {
+                        if (cellData.type === 'leave') {
+                          cellClass = 'bg-rose-50/80 text-rose-700 border-rose-300 hover:bg-rose-100 shadow-2xs font-bold';
+                        } else if (cellData.type === 'lunch') {
+                          cellClass = 'bg-amber-50/80 text-amber-900 border-amber-300 hover:bg-amber-100 shadow-2xs font-bold';
+                        } else if (cellData.type === 'tasks') {
                           cellClass = 'bg-emerald-50 text-emerald-900 border-emerald-200 hover:bg-emerald-100 font-bold';
-                        } else if (hasNotes) {
-                          cellClass = 'bg-amber-50 text-amber-900 border-amber-200 hover:bg-amber-100 font-medium';
+                        } else if (cellData.type === 'notes_only') {
+                          cellClass = 'bg-slate-50 text-slate-900 border-slate-300 hover:bg-slate-100 font-medium';
                         }
 
                         return (
@@ -262,25 +314,57 @@ export const HourlyWorkReport = ({
                                 }
                               }}
                               className={`w-full py-2 px-1.5 rounded-xl border text-center transition-all group relative cursor-pointer shadow-xs ${cellClass}`}
-                              title={log ? `${log.projectName}: ${log.taskCount} tasks. ${log.notes || ''} (Click to edit)` : `No log for ${hour} (Click to add)`}
+                              title={log ? `${log.projectName || 'Task'}: ${log.taskCount} tasks. ${log.notes || ''} (Click to edit)` : `No log for ${hour} (Click to add)`}
                             >
-                              {log ? (
-                                <div className="flex flex-col items-center justify-center overflow-hidden gap-0.5">
+                              {cellData.type === 'leave' ? (
+                                <div className="flex flex-col items-center justify-center gap-0.5">
+                                  <span className="text-[11px] font-black text-rose-700 bg-rose-100/90 px-2 py-0.5 rounded-md border border-rose-200 uppercase tracking-wide">
+                                    Leave
+                                  </span>
+                                  {cellData.notes ? (
+                                    <span className="text-[9px] font-medium text-rose-900 bg-white/90 px-1 py-0.5 rounded border border-rose-200/60 truncate max-w-[95px] block mt-0.5" title={cellData.notes}>
+                                      {cellData.notes}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              ) : cellData.type === 'lunch' ? (
+                                <div className="flex flex-col items-center justify-center gap-0.5">
+                                  <span className="text-[11px] font-black text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200 flex items-center gap-1">
+                                    🍱 Lunch
+                                  </span>
+                                  {cellData.notes ? (
+                                    <span className="text-[9px] font-medium text-amber-900 bg-white/90 px-1 py-0.5 rounded border border-amber-200/60 truncate max-w-[95px] block mt-0.5" title={cellData.notes}>
+                                      {cellData.notes}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              ) : cellData.type === 'tasks' ? (
+                                <div className="flex flex-col items-center justify-center overflow-hidden gap-1">
                                   {/* Task Count Badge */}
                                   <div className="flex items-center gap-1 font-mono">
-                                    <span className="text-xs font-black">{tasks}</span>
-                                    <span className="text-[9px] font-bold opacity-75">tasks</span>
+                                    <span className="text-xs font-black text-emerald-800">{cellData.tasks}</span>
+                                    <span className="text-[9px] font-bold text-emerald-600">tasks</span>
                                   </div>
-                                  {/* Work Description / Notes beside/below */}
-                                  {log.notes ? (
-                                    <span className="text-[9px] font-medium text-slate-700 bg-white/80 px-1 py-0.5 rounded border border-slate-200/60 truncate max-w-[95px] block" title={log.notes}>
-                                      {log.notes}
+                                  {/* Work Description in a separate row below */}
+                                  {cellData.notes ? (
+                                    <span className="text-[9px] font-medium text-slate-700 bg-white px-1.5 py-0.5 rounded border border-slate-200/80 truncate max-w-[95px] block shadow-2xs" title={cellData.notes}>
+                                      {cellData.notes}
                                     </span>
                                   ) : (
                                     <span className="text-[9px] font-medium text-slate-400 opacity-80 truncate max-w-[85px]">
                                       {log.projectName ? log.projectName.split(' ')[0] : 'Done'}
                                     </span>
                                   )}
+                                </div>
+                              ) : cellData.type === 'notes_only' ? (
+                                <div className="flex flex-col items-center justify-center gap-0.5">
+                                  {/* Display only the work description clearly, without 0 tasks! */}
+                                  <span className="text-[10px] font-bold text-slate-800 bg-white px-1.5 py-0.5 rounded border border-slate-200 truncate max-w-[95px] block shadow-2xs" title={cellData.notes}>
+                                    {cellData.notes}
+                                  </span>
+                                  <span className="text-[9px] text-slate-400 font-medium opacity-80 truncate max-w-[85px]">
+                                    {log.projectName ? log.projectName.split(' ')[0] : 'Note'}
+                                  </span>
                                 </div>
                               ) : (
                                 <span className="text-slate-300 group-hover:text-slate-500 text-xs">-</span>
@@ -342,71 +426,86 @@ export const HourlyWorkReport = ({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredLogs.length > 0 ? (
-                  filteredLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3.5 pl-2 font-mono font-extrabold text-slate-800">
-                        {log.hourSlot}
-                      </td>
-                      <td className="py-3.5">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="w-2.5 h-2.5 rounded-full shrink-0"
-                            style={{ backgroundColor: log.memberColor || '#0284c7' }}
-                          ></span>
-                          <span className="font-bold text-slate-900">{log.memberName}</span>
-                        </div>
-                      </td>
-                      <td className="py-3.5">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-bold">
-                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: log.projectColor || '#0284c7' }}></span>
-                          {log.projectName}
-                        </span>
-                      </td>
-                      <td className="py-3.5 text-center font-mono font-extrabold text-amber-600 text-sm">
-                        {log.taskCount}
-                      </td>
-                      <td className="py-3.5 text-slate-700 max-w-sm">
-                        {log.notes ? (
-                          <span className="font-medium bg-slate-50 px-2 py-1 rounded-lg border border-slate-200/60 inline-block">
-                            {log.notes}
+                  filteredLogs.map((log) => {
+                    const cellData = getLogCellData(log);
+                    return (
+                      <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3.5 pl-2 font-mono font-extrabold text-slate-800">
+                          {log.hourSlot}
+                        </td>
+                        <td className="py-3.5">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="w-2.5 h-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: log.memberColor || '#0284c7' }}
+                            ></span>
+                            <span className="font-bold text-slate-900">{log.memberName}</span>
+                          </div>
+                        </td>
+                        <td className="py-3.5">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-bold">
+                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: log.projectColor || '#0284c7' }}></span>
+                            {log.projectName}
                           </span>
-                        ) : (
-                          <span className="text-slate-400 italic">No description</span>
-                        )}
-                      </td>
-                      <td className="py-3.5">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                          log.status === 'Completed'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : log.status === 'In Progress'
-                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                            : 'bg-rose-50 text-rose-700 border border-rose-200'
-                        }`}>
-                          {log.status || 'Completed'}
-                        </span>
-                      </td>
-                      <td className="py-3.5 text-right pr-2">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => onEditLog(log)}
-                            className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-amber-700 transition-colors shadow-xs cursor-pointer"
-                            title="Edit task log"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onDeleteLog(log.id)}
-                            className="p-1.5 rounded-xl bg-slate-100 hover:bg-rose-50 text-rose-600 transition-colors shadow-xs cursor-pointer"
-                            title="Delete task log"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                        <td className="py-3.5 text-center font-mono font-extrabold text-sm">
+                          {cellData.type === 'leave' ? (
+                            <span className="text-rose-600 font-black text-xs">LEAVE</span>
+                          ) : cellData.type === 'lunch' ? (
+                            <span className="text-amber-700 font-black text-xs">LUNCH</span>
+                          ) : Number(log.taskCount) > 0 ? (
+                            <span className="text-emerald-700 font-black">{log.taskCount}</span>
+                          ) : (
+                            <span className="text-slate-400 font-normal">-</span>
+                          )}
+                        </td>
+                        <td className="py-3.5 text-slate-700 max-w-sm">
+                          {log.notes ? (
+                            <span className="font-medium bg-slate-50 px-2 py-1 rounded-lg border border-slate-200/60 inline-block">
+                              {log.notes}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 italic">No description</span>
+                          )}
+                        </td>
+                        <td className="py-3.5">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            cellData.type === 'leave'
+                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                              : cellData.type === 'lunch'
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                              : log.status === 'Completed'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : log.status === 'In Progress'
+                              ? 'bg-sky-50 text-sky-700 border border-sky-200'
+                              : 'bg-slate-100 text-slate-700 border border-slate-200'
+                          }`}>
+                            {cellData.type === 'leave' ? '🏖️ On Leave' : cellData.type === 'lunch' ? '🍱 Lunch Break' : log.status || 'Completed'}
+                          </span>
+                        </td>
+                        <td className="py-3.5 text-right pr-2">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => onEditLog(log)}
+                              className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-amber-700 transition-colors shadow-xs cursor-pointer"
+                              title="Edit task log"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onDeleteLog(log.id)}
+                              className="p-1.5 rounded-xl bg-slate-100 hover:bg-rose-50 text-rose-600 transition-colors shadow-xs cursor-pointer"
+                              title="Delete task log"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
                     <td colSpan="7" className="py-8 text-center text-slate-400 font-medium">

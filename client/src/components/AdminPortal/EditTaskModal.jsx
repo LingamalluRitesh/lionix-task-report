@@ -172,12 +172,24 @@ export const EditTaskModal = ({
             </label>
             <select
               value={formData.status}
-              onChange={(e) => handleChange('status', e.target.value)}
+              onChange={(e) => {
+                const newStatus = e.target.value;
+                handleChange('status', newStatus);
+                if (newStatus === 'On Leave' && !formData.notes) {
+                  handleChange('notes', 'On Leave');
+                  handleChange('taskCount', 0);
+                } else if (newStatus === 'Lunch Break' && !formData.notes) {
+                  handleChange('notes', 'Lunch Break');
+                  handleChange('taskCount', 0);
+                }
+              }}
               className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:outline-none font-medium"
             >
-              <option value="Completed">Completed</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Blocked">Blocked</option>
+              <option value="Completed">✓ Completed / Done</option>
+              <option value="In Progress">⏳ In Progress</option>
+              <option value="Blocked">⚠️ Blocked</option>
+              <option value="Lunch Break">🍱 Lunch Break</option>
+              <option value="On Leave">🏖️ On Leave</option>
             </select>
           </div>
 
