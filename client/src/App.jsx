@@ -334,6 +334,17 @@ const MainApp = () => {
     }
   };
 
+  const handleUpdateDailyGoal = async (newGoal) => {
+    try {
+      await api.updateSettings({ dailyTaskGoal: newGoal });
+      setDailyTaskGoal(newGoal);
+      addToast(`Daily goal target updated to ${newGoal} tasks/day`, 'success');
+      await fetchAdminData();
+    } catch (err) {
+      addToast('Failed to update daily goal', 'error');
+    }
+  };
+
   const handleResetAllData = async () => {
     try {
       await api.resetData();
@@ -457,13 +468,16 @@ const MainApp = () => {
             {/* Admin Tab Content */}
             {currentAdminTab === 'overview' && (
               <AdminDashboard
+                stats={adminOverview}
                 overview={adminOverview}
                 selectedDate={selectedDate}
                 currentShift={currentShift}
                 onShiftChange={handleShiftChange}
                 onDateChange={setSelectedDate}
                 onNavigateTab={setCurrentAdminTab}
+                onUpdateDailyGoal={handleUpdateDailyGoal}
                 onRefresh={fetchAdminData}
+                dailyTaskGoal={dailyTaskGoal}
               />
             )}
 

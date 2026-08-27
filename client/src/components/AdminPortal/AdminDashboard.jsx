@@ -18,7 +18,8 @@ import {
   ShieldCheck,
   Save,
   Check,
-  Activity
+  Activity,
+  RefreshCw
 } from 'lucide-react';
 import { StatCard } from '../UI/StatCard.jsx';
 import { 
@@ -33,19 +34,25 @@ import {
 } from 'recharts';
 
 export const AdminDashboard = ({
-  stats = {},
+  stats,
+  overview,
   selectedDate,
   currentShift = 'morning',
   onShiftChange,
   onDateChange,
   onNavigateTab,
   onUpdateDailyGoal,
+  onRefresh,
   dailyTaskGoal = 100
 }) => {
   const [goalInput, setGoalInput] = useState(dailyTaskGoal);
   const [isSavingGoal, setIsSavingGoal] = useState(false);
   const [goalSaved, setGoalSaved] = useState(false);
   const [activeShift, setActiveShift] = useState(currentShift);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Accept stats or overview prop interchangeably
+  const data = stats || overview || {};
 
   useEffect(() => {
     setGoalInput(dailyTaskGoal);
@@ -54,6 +61,17 @@ export const AdminDashboard = ({
   useEffect(() => {
     setActiveShift(currentShift);
   }, [currentShift]);
+
+  const handleRefresh = async () => {
+    if (onRefresh) {
+      setIsRefreshing(true);
+      try {
+        await onRefresh();
+      } finally {
+        setIsRefreshing(false);
+      }
+    }
+  };
 
   const handleSaveGoal = async (e) => {
     e.preventDefault();
@@ -83,15 +101,15 @@ export const AdminDashboard = ({
   };
 
   const isNightShift = activeShift === 'night';
-  const totalTasks = Number(stats?.totalTasksToday) || 0;
-  const activeMembers = Number(stats?.activeMembersToday) || 0;
-  const totalMembers = Number(stats?.totalMembers) || 15;
-  const hoursLogged = Number(stats?.hoursLoggedToday) || 0;
-  const avgTasksPerHour = stats?.avgTasksPerHour || '0.0';
-  const hourlyVelocity = Array.isArray(stats?.hourlyVelocity) ? stats.hourlyVelocity : [];
-  const projectDistribution = Array.isArray(stats?.projectDistribution) ? stats.projectDistribution : [];
-  const memberLeaderboard = Array.isArray(stats?.memberLeaderboard) ? stats.memberLeaderboard : [];
-  const topProject = stats?.topProject || '';
+  const totalTasks = Number(data.totalTasksToday ?? data.totalTasks ?? 0);
+  const activeMembers = Number(data.activeMembersToday ?? data.activeMembersCount ?? data.activeMembers ?? 0);
+  const totalMembers = Number(data.totalMembers || 15);
+  const hoursLogged = Number(data.hoursLoggedToday ?? data.totalHoursLogged ?? data.hoursLogged ?? 0);
+  const avgTasksPerHour = data.avgTasksPerHour || '0.0';
+  const hourlyVelocity = Array.isArray(data.hourlyVelocity) ? data.hourlyVelocity : [];
+  const projectDistribution = Array.isArray(data.projectDistribution) ? data.projectDistribution : [];
+  const memberLeaderboard = Array.isArray(data.memberLeaderboard) ? data.memberLeaderboard : [];
+  const topProject = data.topProject || '';
 
   const currentGoalNum = Number(dailyTaskGoal) || 100;
   const totalTeamTargetGoal = totalMembers * currentGoalNum;
@@ -109,7 +127,7 @@ export const AdminDashboard = ({
 
   return (
     <div className="space-y-6">
-      {/* Top Banner with Shift Selector & Date Bar */}
+      {/* Top Banner with Shift Selector, Date Bar & Live Refresh */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -158,6 +176,18 @@ export const AdminDashboard = ({
               className="bg-transparent text-slate-900 text-xs font-bold focus:outline-none cursor-pointer font-mono"
             />
           </div>
+
+          {/* Quick Refresh Button */}
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl text-slate-700 transition-all cursor-pointer shadow-xs"
+            title="Refresh Overview Data"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-amber-600' : ''}`} />
+          </button>
+
           <button
             onClick={() => onDateChange(new Date().toISOString().split('T')[0])}
             className="px-4 py-2 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold shadow-md shadow-amber-500/25 transition-all cursor-pointer"
@@ -289,7 +319,7 @@ export const AdminDashboard = ({
 
       {/* Charts Section: Hourly Velocity & Project Goals */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Hourly Velocity Chart (Upgraded with In-Progress & Active Contributors) */}
+        {/* Hourly Velocity Chart */}
         <div className="lg:col-span-8 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-4 border-b border-slate-100 gap-2">
             <div>

@@ -967,7 +967,22 @@ class Database {
       };
     }).sort((a, b) => b.tasks - a.tasks);
 
+    const activeShift = settings.currentShift || 'morning';
+    const standardHours = activeShift === 'night' ? [
+      '08:00 PM - 09:00 PM', '09:00 PM - 10:00 PM', '10:00 PM - 11:00 PM',
+      '11:00 PM - 12:00 AM', '12:00 AM - 01:00 AM', '01:00 AM - 02:00 AM',
+      '02:00 AM - 03:00 AM', '03:00 AM - 04:00 AM', '04:00 AM - 05:00 AM'
+    ] : [
+      '09:00 AM - 10:00 AM', '10:00 AM - 11:00 AM', '11:00 AM - 12:00 PM',
+      '12:00 PM - 01:00 PM', '01:00 PM - 02:00 PM', '02:00 PM - 03:00 PM',
+      '03:00 PM - 04:00 PM', '04:00 PM - 05:00 PM', '05:00 PM - 06:00 PM'
+    ];
+
     const hourlyVelocityMap = {};
+    standardHours.forEach(hour => {
+      hourlyVelocityMap[hour] = { tasks: 0, activeMembers: new Set(), inProgress: 0, totalLogs: 0 };
+    });
+
     logs.forEach(l => {
       if (!hourlyVelocityMap[l.hourSlot]) {
         hourlyVelocityMap[l.hourSlot] = { tasks: 0, activeMembers: new Set(), inProgress: 0, totalLogs: 0 };
@@ -983,14 +998,17 @@ class Database {
       }
     });
 
-    const hourlyVelocity = Object.entries(hourlyVelocityMap).map(([slot, data]) => ({
-      hour: slot,
-      hourSlot: slot,
-      tasks: data.tasks,
-      activeMembers: data.activeMembers.size,
-      inProgress: data.inProgress,
-      totalLogs: data.totalLogs
-    })).sort((a, b) => a.hourSlot.localeCompare(b.hourSlot));
+    const hourlyVelocity = standardHours.map(slot => {
+      const data = hourlyVelocityMap[slot] || { tasks: 0, activeMembers: new Set(), inProgress: 0, totalLogs: 0 };
+      return {
+        hour: slot,
+        hourSlot: slot,
+        tasks: data.tasks,
+        activeMembers: data.activeMembers.size,
+        inProgress: data.inProgress,
+        totalLogs: data.totalLogs
+      };
+    });
 
     const memberLeaderboardMap = {};
     logs.forEach(l => {
@@ -1028,10 +1046,15 @@ class Database {
     return {
       date: targetDate,
       dailyTaskGoal: settings.dailyTaskGoal || 100,
-      currentShift: settings.currentShift || 'morning',
+      currentShift: activeShift,
+      totalTasks: totalTasksToday,
       totalTasksToday,
       totalMembers: allMembers.length,
+      activeMembers: activeMemberIds.size,
       activeMembersCount: activeMemberIds.size,
+      activeMembersToday: activeMemberIds.size,
+      hoursLogged: totalHoursLogged,
+      hoursLoggedToday: totalHoursLogged,
       totalHoursLogged,
       avgTasksPerHour,
       topProject: projectDistribution.length > 0 ? projectDistribution[0].name : 'None',
