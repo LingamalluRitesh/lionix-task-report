@@ -55,6 +55,24 @@ router.put('/settings', async (req, res) => {
   }
 });
 
+// POST mark member full day on leave
+router.post('/member-leave', async (req, res) => {
+  try {
+    const { memberId, date, shift } = req.body;
+    if (!memberId || !date) {
+      return res.status(400).json({ success: false, error: 'memberId and date are required' });
+    }
+    const settings = await db.getSettings();
+    const activeShift = shift || settings.currentShift || 'morning';
+    const hours = getHoursForShift(activeShift);
+
+    await db.markMemberDayOnLeave(memberId, date, hours);
+    res.json({ success: true, message: `Member marked On Leave for all day on ${date}` });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // GET hourly logs with filters
 router.get('/hourly', async (req, res) => {
   try {

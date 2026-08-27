@@ -171,7 +171,6 @@ export const HourlyTaskGrid = ({
       return;
     }
 
-    // Save all shift hours for today as On Leave
     for (const slot of activeHours) {
       const current = formState[slot] || {};
       await onSaveLog({
@@ -238,6 +237,12 @@ export const HourlyTaskGrid = ({
   const loggedCount = activeHours.filter(s => formState[s]?.isSaved && formState[s]?.id).length;
   const progressPercent = Math.round((loggedCount / activeHours.length) * 100);
 
+  // Determine current active project and its unique target goal
+  const firstActiveEntry = activeHours.map(s => formState[s]).find(e => e?.projectId);
+  const selectedProjId = firstActiveEntry?.projectId || projects[0]?.id;
+  const currentProject = projects.find(p => p.id === selectedProjId) || projects[0];
+  const projectSpecificDailyGoal = currentProject?.dailyGoal || dailyTaskGoal || 100;
+
   // Check if today is completely on leave
   const isEntireDayOnLeave = activeHours.every(slot => {
     const entry = formState[slot];
@@ -272,13 +277,14 @@ export const HourlyTaskGrid = ({
                     🏖️ Entire Day On Leave
                   </span>
                 ) : (
-                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 font-mono">
-                    <Target className="w-3 h-3" /> Goal: {dailyTaskGoal} tasks/day
+                  <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1.5 font-mono shadow-2xs">
+                    <Target className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Target: <strong>{projectSpecificDailyGoal} tasks/day</strong> ({currentProject?.name || 'Project'})</span>
                   </span>
                 )}
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Log your hourly task count, lunch break, leave status, or work description.
+                Log your hourly output. Target task goal updates dynamically based on your selected project.
               </p>
             </div>
           </div>
@@ -378,6 +384,9 @@ export const HourlyTaskGrid = ({
             isSaved: false
           };
 
+          const rowProject = projects.find(p => p.id === entry.projectId) || projects[0];
+          const rowProjectGoal = rowProject?.dailyGoal || dailyTaskGoal || 100;
+
           const isLeave = entry.status === 'On Leave' || entry.notes?.toLowerCase() === 'on leave' || entry.notes?.toLowerCase() === 'leave';
           const isLunch = entry.status === 'Lunch Break' || entry.notes?.toLowerCase().includes('lunch');
           const isSaved = entry.isSaved && !entry.isDirty && entry.id;
@@ -444,11 +453,16 @@ export const HourlyTaskGrid = ({
                   </div>
                 </div>
 
-                {/* 2. Project Selection (2 cols) */}
+                {/* 2. Project Selection & Goal Pill (2 cols) */}
                 <div className="lg:col-span-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1 lg:hidden">
-                    Assigned Project
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block lg:hidden">
+                      Assigned Project
+                    </label>
+                    <span className="text-[10px] font-mono font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60">
+                      Goal: {rowProjectGoal}
+                    </span>
+                  </div>
                   <div className="relative">
                     <select
                       value={entry.projectId || ''}
@@ -459,7 +473,7 @@ export const HourlyTaskGrid = ({
                       {hasProjects ? (
                         projects.map(proj => (
                           <option key={proj.id} value={proj.id}>
-                            {proj.name}
+                            {proj.name} ({proj.dailyGoal || 100}/day)
                           </option>
                         ))
                       ) : (
@@ -509,7 +523,7 @@ export const HourlyTaskGrid = ({
                   />
                 </div>
 
-                {/* 5. Status & Save Action (2 cols - Clean layout without side cup icon) */}
+                {/* 5. Status & Save Action (2 cols) */}
                 <div className="lg:col-span-2 flex items-center justify-end gap-1.5">
                   {/* Status Dropdown */}
                   <select
@@ -518,7 +532,6 @@ export const HourlyTaskGrid = ({
                     onChange={(e) => {
                       const newStatus = e.target.value;
                       if (newStatus === 'On Leave') {
-                        // Clicking On Leave marks the entire today grid as On Leave!
                         handleMarkEntireDayOnLeave();
                       } else {
                         handleFieldChange(slot, 'status', newStatus);

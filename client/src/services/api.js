@@ -129,6 +129,15 @@ export const api = {
     return res.json();
   },
 
+  async markMemberDayOnLeave(memberId, date, shift = 'morning') {
+    const res = await fetch(`${API_BASE}/reports/member-leave`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ memberId, date, shift })
+    });
+    return res.json();
+  },
+
   // Reports
   async getHourlyLogs(params = {}) {
     const query = new URLSearchParams(params).toString();

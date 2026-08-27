@@ -107,8 +107,11 @@ class Database {
         description TEXT DEFAULT '',
         color VARCHAR(50) DEFAULT '#0284c7',
         status VARCHAR(50) DEFAULT 'Active',
+        daily_goal INT DEFAULT 100,
         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
       );
+
+      ALTER TABLE projects ADD COLUMN IF NOT EXISTS daily_goal INT DEFAULT 100;
 
       CREATE TABLE IF NOT EXISTS members (
         id VARCHAR(255) PRIMARY KEY,
@@ -590,7 +593,7 @@ class Database {
   // --- Projects CRUD ---
   async getProjects(filterActive = false) {
     if (this.usePostgres) {
-      let query = 'SELECT id, name, code, description, color, status, created_at as "createdAt" FROM projects';
+      let query = 'SELECT id, name, code, description, color, status, COALESCE(daily_goal, 100) as "dailyGoal", created_at as "createdAt" FROM projects';
       if (filterActive) query += " WHERE status = 'Active'";
       query += ' ORDER BY name ASC';
       const res = await this.pool.query(query);
@@ -603,7 +606,7 @@ class Database {
 
   async getProjectById(id) {
     if (this.usePostgres) {
-      const res = await this.pool.query('SELECT id, name, code, description, color, status, created_at as "createdAt" FROM projects WHERE id = $1', [id]);
+      const res = await this.pool.query('SELECT id, name, code, description, color, status, COALESCE(daily_goal, 100) as "dailyGoal", created_at as "createdAt" FROM projects WHERE id = $1', [id]);
       return res.rows.length > 0 ? res.rows[0] : null;
     }
     return this.localData.projects.find(p => p.id === id);
@@ -616,17 +619,18 @@ class Database {
     const description = project.description || '';
     const color = project.color || '#0284c7';
     const status = project.status || 'Active';
+    const dailyGoal = Math.max(1, parseInt(project.dailyGoal, 10) || 100);
 
     if (this.usePostgres) {
       const res = await this.pool.query(`
-        INSERT INTO projects (id, name, code, description, color, status)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING id, name, code, description, color, status, created_at as "createdAt"
-      `, [id, name, code, description, color, status]);
+        INSERT INTO projects (id, name, code, description, color, status, daily_goal)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id, name, code, description, color, status, daily_goal as "dailyGoal", created_at as "createdAt"
+      `, [id, name, code, description, color, status, dailyGoal]);
       return res.rows[0];
     }
 
-    const newP = { id, name, code, description, color, status, createdAt: new Date().toISOString() };
+    const newP = { id, name, code, description, color, status, dailyGoal, createdAt: new Date().toISOString() };
     this.localData.projects.push(newP);
     this.saveLocalData();
     return newP;
@@ -643,11 +647,15 @@ class Database {
       if (updates.description !== undefined) { fields.push(`description = $${idx++}`); values.push(updates.description); }
       if (updates.color) { fields.push(`color = $${idx++}`); values.push(updates.color); }
       if (updates.status) { fields.push(`status = $${idx++}`); values.push(updates.status); }
+      if (updates.dailyGoal !== undefined) {
+        fields.push(`daily_goal = $${idx++}`);
+        values.push(Math.max(1, parseInt(updates.dailyGoal, 10) || 100));
+      }
 
       if (fields.length === 0) return this.getProjectById(id);
 
       values.push(id);
-      const res = await this.pool.query(`UPDATE projects SET ${fields.join(', ')} WHERE id = $${idx} RETURNING id, name, code, description, color, status, created_at as "createdAt"`, values);
+      const res = await this.pool.query(`UPDATE projects SET ${fields.join(', ')} WHERE id = $${idx} RETURNING id, name, code, description, color, status, daily_goal as "dailyGoal", created_at as "createdAt"`, values);
       return res.rows.length > 0 ? res.rows[0] : null;
     }
 
@@ -656,6 +664,57 @@ class Database {
     this.localData.projects[index] = { ...this.localData.projects[index], ...updates };
     this.saveLocalData();
     return this.localData.projects[index];
+  }
+
+  async markMemberDayOnLeave(memberId, date, hourSlots = []) {
+    const slotsToMark = (hourSlots && hourSlots.length > 0) ? hourSlots : [
+      '09:00 AM - 10:00 AM', '10:00 AM - 11:00 AM', '11:00 AM - 12:00 PM',
+      '12:00 PM - 01:00 PM', '01:00 PM - 02:00 PM', '02:00 PM - 03:00 PM',
+      '03:00 PM - 04:00 PM', '04:00 PM - 05:00 PM', '05:00 PM - 06:00 PM'
+    ];
+
+    if (this.usePostgres) {
+      for (const slot of slotsToMark) {
+        const id = `log_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+        await this.pool.query(`
+          INSERT INTO hourly_logs (id, member_id, date, hour_slot, task_count, notes, status)
+          VALUES ($1, $2, $3, $4, 0, 'On Leave', 'On Leave')
+          ON CONFLICT (member_id, date, hour_slot) DO UPDATE SET
+            task_count = 0,
+            notes = 'On Leave',
+            status = 'On Leave',
+            updated_at = CURRENT_TIMESTAMP
+        `, [id, memberId, date, slot]);
+      }
+      return true;
+    }
+
+    slotsToMark.forEach(slot => {
+      const idx = this.localData.hourlyLogs.findIndex(l => l.memberId === memberId && l.date === date && l.hourSlot === slot);
+      if (idx !== -1) {
+        this.localData.hourlyLogs[idx] = {
+          ...this.localData.hourlyLogs[idx],
+          taskCount: 0,
+          notes: 'On Leave',
+          status: 'On Leave',
+          updatedAt: new Date().toISOString()
+        };
+      } else {
+        this.localData.hourlyLogs.push({
+          id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+          memberId,
+          date,
+          hourSlot: slot,
+          taskCount: 0,
+          notes: 'On Leave',
+          status: 'On Leave',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+      }
+    });
+    this.saveLocalData();
+    return true;
   }
 
   async deleteProject(id) {
@@ -896,24 +955,41 @@ class Database {
 
     const projectDistribution = Object.entries(projectTaskMap).map(([name, tasks]) => {
       const proj = allProjects.find(p => p.name === name);
+      const dailyGoal = proj?.dailyGoal || 100;
       return {
         name,
         projectName: name,
         tasks,
+        dailyGoal,
         percentage: totalTasksToday > 0 ? Math.round((tasks / totalTasksToday) * 100) : 0,
+        goalProgress: Math.min(100, Math.round((tasks / dailyGoal) * 100)),
         color: proj ? proj.color : (name.includes('Infography') ? '#7c3aed' : '#0284c7')
       };
     }).sort((a, b) => b.tasks - a.tasks);
 
     const hourlyVelocityMap = {};
     logs.forEach(l => {
-      hourlyVelocityMap[l.hourSlot] = (hourlyVelocityMap[l.hourSlot] || 0) + (Number(l.taskCount) || 0);
+      if (!hourlyVelocityMap[l.hourSlot]) {
+        hourlyVelocityMap[l.hourSlot] = { tasks: 0, activeMembers: new Set(), inProgress: 0, totalLogs: 0 };
+      }
+      const tCount = Number(l.taskCount) || 0;
+      hourlyVelocityMap[l.hourSlot].tasks += tCount;
+      hourlyVelocityMap[l.hourSlot].totalLogs += 1;
+      if (tCount > 0 || (l.notes && l.notes.trim().length > 0)) {
+        hourlyVelocityMap[l.hourSlot].activeMembers.add(l.memberId);
+      }
+      if (l.status === 'In Progress' || (tCount === 0 && l.notes && l.status !== 'On Leave')) {
+        hourlyVelocityMap[l.hourSlot].inProgress += 1;
+      }
     });
 
-    const hourlyVelocity = Object.entries(hourlyVelocityMap).map(([slot, tasks]) => ({
+    const hourlyVelocity = Object.entries(hourlyVelocityMap).map(([slot, data]) => ({
       hour: slot,
       hourSlot: slot,
-      tasks
+      tasks: data.tasks,
+      activeMembers: data.activeMembers.size,
+      inProgress: data.inProgress,
+      totalLogs: data.totalLogs
     })).sort((a, b) => a.hourSlot.localeCompare(b.hourSlot));
 
     const memberLeaderboardMap = {};

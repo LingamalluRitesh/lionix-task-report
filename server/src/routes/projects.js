@@ -30,11 +30,11 @@ router.get('/:id', async (req, res) => {
 // POST create project
 router.post('/', async (req, res) => {
   try {
-    const { name, code, description, color, status } = req.body;
+    const { name, code, description, color, status, dailyGoal } = req.body;
     if (!name || name.trim() === '') {
       return res.status(400).json({ success: false, error: 'Project name is required' });
     }
-    const newProject = await db.addProject({ name: name.trim(), code, description, color, status });
+    const newProject = await db.addProject({ name: name.trim(), code, description, color, status, dailyGoal });
     res.status(201).json({ success: true, data: newProject });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

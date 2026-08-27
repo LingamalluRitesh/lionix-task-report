@@ -2,12 +2,19 @@ import React from 'react';
 import { Target, TrendingUp, Briefcase, Zap, CheckCircle2, Award } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
-export const DailySummaryCard = ({ member, selectedDate, logs = [], dailyTaskGoal = 20 }) => {
+export const DailySummaryCard = ({ member, selectedDate, logs = [], projects = [], dailyTaskGoal = 100 }) => {
   const totalTasks = logs.reduce((acc, l) => acc + (Number(l.taskCount) || 0), 0);
   const hoursLogged = logs.length;
   const avgTasksPerHour = hoursLogged > 0 ? (totalTasks / hoursLogged).toFixed(1) : '0.0';
 
-  const goal = Math.max(1, parseInt(dailyTaskGoal, 10) || 20);
+  // Determine active project daily goal
+  const firstLogWithProj = logs.find(l => l.projectId);
+  const matchedProject = firstLogWithProj
+    ? projects.find(p => p.id === firstLogWithProj.projectId)
+    : projects[0];
+  const projectName = matchedProject?.name || 'Project';
+  const goal = Math.max(1, parseInt(matchedProject?.dailyGoal || dailyTaskGoal, 10) || 100);
+
   const goalPercent = Math.min(100, Math.round((totalTasks / goal) * 100));
   const isGoalMet = totalTasks >= goal;
   const remainingTasks = Math.max(0, goal - totalTasks);
@@ -50,7 +57,7 @@ export const DailySummaryCard = ({ member, selectedDate, logs = [], dailyTaskGoa
           </span>
         </div>
 
-        {/* 🎯 Daily Task Goal Card (Admin Set Target) */}
+        {/* 🎯 Daily Task Goal Card (Project-Specific Target) */}
         <div className={`mt-4 p-4 rounded-2xl border transition-all ${
           isGoalMet
             ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
@@ -64,7 +71,7 @@ export const DailySummaryCard = ({ member, selectedDate, logs = [], dailyTaskGoa
                 <Target className="w-4 h-4 text-amber-600" />
               )}
               <span className="text-xs font-extrabold uppercase tracking-wide">
-                Daily Task Goal
+                {projectName} Target Goal
               </span>
             </div>
             <span className="text-xs font-mono font-extrabold px-2 py-0.5 rounded-lg bg-white shadow-xs border border-slate-200/60">
@@ -100,127 +107,102 @@ export const DailySummaryCard = ({ member, selectedDate, logs = [], dailyTaskGoa
               </span>
             ) : (
               <span className="text-amber-800">
-                ⏳ {remainingTasks} more {remainingTasks === 1 ? 'task' : 'tasks'} needed to meet today's goal.
+                ⏳ {remainingTasks} more tasks needed to reach the {projectName} daily goal.
               </span>
             )}
           </div>
         </div>
 
-        {/* 3 Metric Cards */}
-        <div className="grid grid-cols-3 gap-2.5 my-4">
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-              Total Done
+        {/* Performance Metric Cards */}
+        <div className="grid grid-cols-2 gap-3 mt-4">
+          <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl">
+            <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+              Total Output
             </span>
-            <span className="text-2xl font-extrabold text-amber-600 font-mono mt-0.5 block">
-              {totalTasks}
-            </span>
+            <div className="flex items-baseline gap-1 mt-1">
+              <span className="text-xl font-extrabold text-slate-900 font-mono">{totalTasks}</span>
+              <span className="text-xs text-slate-500 font-bold">tasks</span>
+            </div>
           </div>
 
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-              Hours Logged
+          <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl">
+            <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+              Pace (Rate)
             </span>
-            <span className="text-2xl font-extrabold text-slate-800 font-mono mt-0.5 block">
-              {hoursLogged}h
-            </span>
-          </div>
-
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-              Tasks / Hour
-            </span>
-            <span className="text-2xl font-extrabold text-indigo-600 font-mono mt-0.5 block">
-              {avgTasksPerHour}
-            </span>
+            <div className="flex items-baseline gap-1 mt-1">
+              <span className="text-xl font-extrabold text-slate-900 font-mono">{avgTasksPerHour}</span>
+              <span className="text-xs text-slate-500 font-bold">tasks/hr</span>
+            </div>
           </div>
         </div>
 
-        {/* Velocity Bar Chart */}
-        <div className="my-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-              <TrendingUp className="w-3.5 h-3.5 text-amber-600" /> Hourly Velocity
-            </span>
-            <span className="text-[10px] text-slate-400 font-medium">9 AM – 6 PM tasks</span>
-          </div>
-
-          {chartData.length > 0 ? (
-            <div className="h-32 w-full bg-slate-50 rounded-2xl p-2 border border-slate-200">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 10, right: 5, left: -25, bottom: 0 }}>
-                  <XAxis dataKey="slot" stroke="#94a3b8" fontSize={10} tickLine={false} />
-                  <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} allowDecimals={false} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#ffffff',
-                      borderColor: '#e2e8f0',
-                      borderRadius: '12px',
-                      fontSize: '12px',
-                      color: '#0f172a',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                    }}
-                    formatter={(value, name, props) => [`${value} tasks`, `${props.payload.project}`]}
-                    labelFormatter={(label, props) => props[0]?.payload?.fullSlot || label}
-                  />
-                  <Bar dataKey="tasks" radius={[4, 4, 0, 0]}>
-                    {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color || '#f59e0b'} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+        {/* Project Breakdown for Member */}
+        {projectsList.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 mb-2">
+              <Briefcase className="w-3.5 h-3.5 text-amber-600" />
+              <span>Project Contribution</span>
             </div>
-          ) : (
-            <div className="h-28 bg-slate-50 rounded-2xl border border-dashed border-slate-200 flex items-center justify-center text-slate-400 text-xs font-medium">
-              No tasks logged yet for this date
-            </div>
-          )}
-        </div>
-
-        {/* Project Breakdown List */}
-        <div>
-          <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5 mb-2.5">
-            <Briefcase className="w-3.5 h-3.5 text-indigo-600" /> Projects Logged
-          </span>
-          {projectsList.length > 0 ? (
-            <div className="space-y-2">
-              {projectsList.map(proj => (
-                <div
-                  key={proj.name}
-                  className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200"
+            <div className="flex flex-wrap gap-1.5">
+              {projectsList.map(p => (
+                <span
+                  key={p.name}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800"
                 >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="w-2.5 h-2.5 rounded-full"
-                      style={{ backgroundColor: proj.color }}
-                    ></span>
-                    <span className="text-xs font-semibold text-slate-800">{proj.name}</span>
-                  </div>
-                  <span className="text-xs font-extrabold text-slate-900 font-mono px-2 py-0.5 rounded-lg bg-white border border-slate-200 shadow-xs">
-                    {proj.tasks} tasks
-                  </span>
-                </div>
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }}></span>
+                  <span>{p.name}:</span>
+                  <span className="font-mono text-amber-600">{p.tasks}</span>
+                </span>
               ))}
             </div>
-          ) : (
-            <p className="text-xs text-slate-400 italic">No projects recorded today.</p>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
-      {/* Motivation Footer */}
-      <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-3">
-        <div className="p-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-600">
-          <Zap className="w-4 h-4" />
-        </div>
-        <div>
-          <p className="text-xs font-bold text-slate-800">
-            {isGoalMet ? '🔥 High Output — Goal Met!' : totalTasks >= 10 ? '⚡ Good Progress' : '🌱 Keep Logging'}
-          </p>
-          <p className="text-[11px] text-slate-500">
-            {totalTasks > 0 ? `${totalTasks} tasks logged across ${hoursLogged} working hours.` : 'Log hourly tasks to reach your daily target.'}
-          </p>
+      {/* Hourly Output Bar Chart */}
+      <div className="pt-4 border-t border-slate-100">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
+          Hourly Distribution
+        </span>
+        <div className="h-32 w-full">
+          {chartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
+                <XAxis
+                  dataKey="slot"
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fontSize: 9, fill: '#64748b' }}
+                />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fontSize: 9, fill: '#64748b' }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#0f172a',
+                    borderRadius: '12px',
+                    color: '#fff',
+                    fontSize: '11px',
+                    border: 'none',
+                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                  }}
+                  formatter={(val, name, item) => [`${val} tasks (${item.payload.project || 'General'})`, 'Output']}
+                  labelFormatter={(label) => `Time: ${label}`}
+                />
+                <Bar dataKey="tasks" radius={[4, 4, 0, 0]}>
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color || '#f59e0b'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-full flex items-center justify-center text-slate-400 text-xs italic">
+              No tasks logged yet for {selectedDate}.
+            </div>
+          )}
         </div>
       </div>
     </div>

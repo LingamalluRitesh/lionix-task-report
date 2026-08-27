@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Clock } from 'lucide-react';
+import { X, Save, Clock, CalendarOff } from 'lucide-react';
 
 export const EditTaskModal = ({
   isOpen,
@@ -19,7 +19,8 @@ export const EditTaskModal = ({
     hourSlot: log.hourSlot || '',
     taskCount: log.taskCount || 0,
     notes: log.notes || '',
-    status: log.status || 'Completed'
+    status: log.status || 'Completed',
+    applyDayOnLeave: true
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -34,7 +35,8 @@ export const EditTaskModal = ({
         hourSlot: log.hourSlot || '',
         taskCount: log.taskCount || 0,
         notes: log.notes || '',
-        status: log.status || 'Completed'
+        status: log.status || 'Completed',
+        applyDayOnLeave: true
       });
     }
   }, [log]);
@@ -64,23 +66,25 @@ export const EditTaskModal = ({
     }
   };
 
+  const isLeave = formData.status === 'On Leave';
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-50">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-sky-50 border border-sky-200 text-sky-600">
+            <div className="p-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-600">
               <Clock className="w-5 h-5" />
             </div>
             <div>
               <h3 className="text-base font-extrabold text-slate-900">Edit Task Entry</h3>
-              <p className="text-xs text-slate-500">Modify tasks count, project assignment, or notes.</p>
+              <p className="text-xs text-slate-500">Modify task count, project assignment, or leave status.</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -97,7 +101,7 @@ export const EditTaskModal = ({
               <select
                 value={formData.memberId}
                 onChange={(e) => handleChange('memberId', e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:outline-none font-medium"
+                className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none font-medium"
               >
                 {members.map(m => (
                   <option key={m.id} value={m.id}>{m.name}</option>
@@ -111,15 +115,14 @@ export const EditTaskModal = ({
               </label>
               <input
                 type="date"
-                required
                 value={formData.date}
                 onChange={(e) => handleChange('date', e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:outline-none font-bold"
+                className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none font-medium font-mono"
               />
             </div>
           </div>
 
-          {/* Hour Slot & Task Count */}
+          {/* Time Slot & Project */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
@@ -127,42 +130,43 @@ export const EditTaskModal = ({
               </label>
               <input
                 type="text"
-                required
+                disabled
                 value={formData.hourSlot}
-                onChange={(e) => handleChange('hourSlot', e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:outline-none font-mono font-bold"
+                className="w-full bg-slate-100 border border-slate-200 text-slate-500 text-xs rounded-xl px-3 py-2.5 font-mono cursor-not-allowed"
               />
             </div>
 
             <div>
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                No. of Tasks Done
+                Project Assigned
               </label>
-              <input
-                type="number"
-                min="0"
-                required
-                value={formData.taskCount}
-                onChange={(e) => handleChange('taskCount', e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-mono font-extrabold text-sm rounded-xl px-3 py-2.5 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:outline-none"
-              />
+              <select
+                value={formData.projectId}
+                disabled={isLeave}
+                onChange={(e) => handleChange('projectId', e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none font-medium disabled:bg-slate-100 disabled:text-slate-400"
+              >
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
             </div>
           </div>
 
-          {/* Project Selection */}
+          {/* Task Count */}
           <div>
             <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
-              Project Name
+              No. of Tasks Completed
             </label>
-            <select
-              value={formData.projectId}
-              onChange={(e) => handleChange('projectId', e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:outline-none font-medium"
-            >
-              {projects.map(p => (
-                <option key={p.id} value={p.id}>{p.name} ({p.code || 'PROJ'})</option>
-              ))}
-            </select>
+            <input
+              type="number"
+              min="0"
+              disabled={isLeave}
+              value={formData.taskCount}
+              onChange={(e) => handleChange('taskCount', e.target.value)}
+              placeholder="0"
+              className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3.5 py-2.5 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none font-mono font-bold disabled:bg-slate-100 disabled:text-slate-400"
+            />
           </div>
 
           {/* Status */}
@@ -175,7 +179,7 @@ export const EditTaskModal = ({
               onChange={(e) => {
                 const newStatus = e.target.value;
                 handleChange('status', newStatus);
-                if (newStatus === 'On Leave' && !formData.notes) {
+                if (newStatus === 'On Leave') {
                   handleChange('notes', 'On Leave');
                   handleChange('taskCount', 0);
                 } else if (newStatus === 'Lunch Break' && !formData.notes) {
@@ -183,27 +187,46 @@ export const EditTaskModal = ({
                   handleChange('taskCount', 0);
                 }
               }}
-              className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2.5 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:outline-none font-medium"
+              className={`w-full border text-xs rounded-xl px-3 py-2.5 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none font-bold ${
+                isLeave
+                  ? 'bg-rose-50 text-rose-700 border-rose-300'
+                  : formData.status === 'Lunch Break'
+                  ? 'bg-amber-50 text-amber-800 border-amber-300'
+                  : 'bg-slate-50 text-slate-900 border-slate-200'
+              }`}
             >
               <option value="Completed">✓ Completed / Done</option>
               <option value="In Progress">⏳ In Progress</option>
               <option value="Blocked">⚠️ Blocked</option>
               <option value="Lunch Break">🍱 Lunch Break</option>
-              <option value="On Leave">🏖️ On Leave</option>
+              <option value="On Leave">🏖️ On Leave (Apply to All Day)</option>
             </select>
           </div>
+
+          {/* Leave Banner Notice */}
+          {isLeave && (
+            <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5">
+              <CalendarOff className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <div>
+                <strong className="block">All-Day Leave Reflection:</strong>
+                <p className="mt-0.5 text-rose-700 text-[11px]">
+                  Saving as "On Leave" will automatically mark all hours of <strong>{formData.date}</strong> as <strong>On Leave</strong> for this member across the entire schedule.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Notes */}
           <div>
             <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
-              Work Notes & Details
+              Work Notes &amp; Description
             </label>
             <textarea
               rows="3"
               value={formData.notes}
               onChange={(e) => handleChange('notes', e.target.value)}
               placeholder="What was completed during this hour?"
-              className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-xl p-3 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:outline-none placeholder:text-slate-400 font-medium"
+              className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-xl p-3 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none placeholder:text-slate-400 font-medium"
             />
           </div>
 
@@ -212,21 +235,25 @@ export const EditTaskModal = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
+              className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSaving}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold shadow-md shadow-sky-600/25 transition-all"
+              className={`flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-white text-xs font-extrabold shadow-md transition-all cursor-pointer ${
+                isLeave
+                  ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/25'
+                  : 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/25'
+              }`}
             >
               {isSaving ? (
                 <span>Saving...</span>
               ) : (
                 <>
-                  <Save className="w-4 h-4" />
-                  <span>Save Changes</span>
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{isLeave ? 'Mark Day On Leave' : 'Save Changes'}</span>
                 </>
               )}
             </button>

@@ -223,8 +223,16 @@ const MainApp = () => {
 
   const handleUpdateHourlyLog = async (id, updates) => {
     try {
-      await api.updateHourlyLog(id, updates);
-      addToast('Task record updated', 'success');
+      if (updates.status === 'On Leave' || updates.notes?.toLowerCase() === 'on leave' || updates.applyDayOnLeave) {
+        await api.markMemberDayOnLeave(updates.memberId, updates.date || selectedDate, currentShift);
+        addToast('Marked entire day as On Leave for member', 'success');
+      } else if (id) {
+        await api.updateHourlyLog(id, updates);
+        addToast('Task record updated', 'success');
+      } else {
+        await api.saveHourlyLog(updates);
+        addToast('Task record created', 'success');
+      }
       await Promise.all([fetchEmployeeLogs(), fetchAdminData()]);
     } catch (err) {
       addToast('Failed to update log', 'error');
@@ -609,6 +617,7 @@ const MainApp = () => {
                   member={currentUser}
                   selectedDate={selectedDate}
                   logs={employeeLogs}
+                  projects={projects}
                   dailyTaskGoal={dailyTaskGoal}
                 />
               </div>
