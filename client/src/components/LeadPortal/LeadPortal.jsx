@@ -175,7 +175,7 @@ export const LeadPortal = ({
                 {currentUser.name}’s Team Overview
               </h1>
               <p className="text-xs text-amber-100 mt-0.5">
-                Monitoring <strong>{leadData.assignedCount} assigned teammates</strong>. You can inspect hourly progress and export team spreadsheets.
+                Monitoring <strong>{leadData.assignedCount} assigned teammates</strong>. Full project names and complete work descriptions are shown.
               </p>
             </div>
           </div>
@@ -285,7 +285,7 @@ export const LeadPortal = ({
               Assigned Team Workprogress
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Live hourly output &amp; work description notes logged by your assigned team members.
+              Live hourly output &amp; complete work description notes logged by your assigned team members.
             </p>
           </div>
 
@@ -315,13 +315,13 @@ export const LeadPortal = ({
 
         {/* View-Only Hourly Matrix */}
         {viewMode === 'matrix' && (
-          <div className="mt-5 overflow-x-auto pb-2">
-            <table className="w-full text-left border-collapse min-w-[1050px]">
+          <div className="mt-5 overflow-x-auto pb-4">
+            <table className="w-full text-left border-collapse min-w-[1300px]">
               <thead>
                 <tr className="border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  <th className="py-3 px-3 sticky left-0 bg-white z-10 w-52">Assigned Teammate</th>
+                  <th className="py-3 px-3 sticky left-0 bg-white z-10 w-56">Assigned Teammate</th>
                   {allHours.map(hour => (
-                    <th key={hour} className="py-3 px-2 text-center font-mono whitespace-nowrap min-w-[110px]">
+                    <th key={hour} className="py-3 px-2 text-center font-mono whitespace-nowrap min-w-[145px]">
                       {hour.split(' - ')[0]}
                     </th>
                   ))}
@@ -336,7 +336,7 @@ export const LeadPortal = ({
                       <td className="py-3.5 px-3 sticky left-0 bg-white/95 z-10 border-r border-slate-100">
                         <div className="flex items-center gap-2.5">
                           <div
-                            className="w-7 h-7 rounded-xl flex items-center justify-center font-bold text-white text-[11px] shrink-0 shadow-xs"
+                            className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-xs"
                             style={{ backgroundColor: row.member.avatarColor || '#0284c7' }}
                           >
                             {row.member.name.charAt(0)}
@@ -348,10 +348,12 @@ export const LeadPortal = ({
                         </div>
                       </td>
 
-                      {/* Hourly Cells (View-Only with Leave in Red, Lunch in Amber, Notes below tasks) */}
+                      {/* Hourly Cells (Full Project Name, Complete Work Description, Task Count) */}
                       {allHours.map(hour => {
                         const log = row.hours ? row.hours[hour] : null;
                         const cellData = getLeadLogCellData(log);
+                        const projectName = log?.projectName || 'General';
+                        const projectColor = log?.projectColor || '#0284c7';
 
                         let cellClass = 'bg-slate-50 text-slate-400 border-slate-200';
                         if (cellData.type === 'leave') {
@@ -359,63 +361,77 @@ export const LeadPortal = ({
                         } else if (cellData.type === 'lunch') {
                           cellClass = 'bg-amber-50/80 text-amber-900 border-amber-300 font-bold';
                         } else if (cellData.type === 'tasks') {
-                          cellClass = 'bg-emerald-50 text-emerald-900 border-emerald-200 font-bold';
+                          cellClass = 'bg-emerald-50/60 text-emerald-950 border-emerald-200';
                         } else if (cellData.type === 'notes_only') {
-                          cellClass = 'bg-slate-50 text-slate-900 border-slate-300 font-medium';
+                          cellClass = 'bg-slate-50 text-slate-900 border-slate-300';
                         }
 
                         return (
-                          <td key={hour} className="py-2 px-1 text-center">
-                            <div className={`w-full py-2 px-1.5 rounded-xl border text-center transition-all shadow-2xs ${cellClass}`}>
+                          <td key={hour} className="py-2.5 px-1.5 text-center align-top">
+                            <div className={`w-full p-2 rounded-2xl border text-center transition-all shadow-2xs min-h-[64px] flex flex-col justify-center items-center gap-1.5 ${cellClass}`}>
                               {cellData.type === 'leave' ? (
-                                <div className="flex flex-col items-center justify-center gap-0.5">
-                                  <span className="text-[11px] font-black text-rose-700 bg-rose-100 px-2 py-0.5 rounded-md border border-rose-200 uppercase tracking-wide">
-                                    Leave
+                                <div className="flex flex-col items-center justify-center gap-1 w-full">
+                                  <span className="text-[11px] font-black text-rose-700 bg-rose-100 px-2.5 py-0.5 rounded-md border border-rose-300 uppercase tracking-wide">
+                                    🏖️ Leave
                                   </span>
                                   {cellData.notes ? (
-                                    <span className="text-[9px] font-medium text-rose-900 bg-white/90 px-1 py-0.5 rounded border border-rose-200/60 truncate max-w-[95px] block mt-0.5" title={cellData.notes}>
+                                    <p className="text-[10px] font-medium text-rose-900 bg-white/95 px-2 py-1 rounded-md border border-rose-200 text-left whitespace-normal break-words w-full leading-tight shadow-2xs">
                                       {cellData.notes}
-                                    </span>
+                                    </p>
                                   ) : null}
                                 </div>
                               ) : cellData.type === 'lunch' ? (
-                                <div className="flex flex-col items-center justify-center gap-0.5">
-                                  <span className="text-[11px] font-black text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200 flex items-center gap-1">
+                                <div className="flex flex-col items-center justify-center gap-1 w-full">
+                                  <span className="text-[11px] font-black text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-md border border-amber-300 flex items-center gap-1">
                                     🍱 Lunch
                                   </span>
                                   {cellData.notes ? (
-                                    <span className="text-[9px] font-medium text-amber-900 bg-white/90 px-1 py-0.5 rounded border border-amber-200/60 truncate max-w-[95px] block mt-0.5" title={cellData.notes}>
+                                    <p className="text-[10px] font-medium text-amber-950 bg-white/95 px-2 py-1 rounded-md border border-amber-200 text-left whitespace-normal break-words w-full leading-tight shadow-2xs">
                                       {cellData.notes}
-                                    </span>
+                                    </p>
                                   ) : null}
                                 </div>
                               ) : cellData.type === 'tasks' ? (
-                                <div className="flex flex-col items-center justify-center overflow-hidden gap-1">
-                                  <div className="flex items-center gap-1 font-mono">
-                                    <span className="text-xs font-black text-emerald-800">{cellData.tasks}</span>
-                                    <span className="text-[9px] font-bold text-emerald-600">tasks</span>
+                                <div className="flex flex-col items-center justify-center gap-1 w-full">
+                                  {/* Top Row: Task Count & Full Project Name */}
+                                  <div className="flex items-center justify-between gap-1 w-full flex-wrap">
+                                    <span className="inline-flex items-center gap-1 font-mono font-black text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-md text-[11px]">
+                                      {cellData.tasks} <span className="text-[9px] font-bold text-emerald-600">tasks</span>
+                                    </span>
+                                    <span
+                                      className="inline-flex items-center gap-1 text-[10px] font-extrabold text-slate-800 bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-2xs whitespace-normal break-words"
+                                      title={`Project: ${projectName}`}
+                                    >
+                                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: projectColor }}></span>
+                                      <span>{projectName}</span>
+                                    </span>
                                   </div>
+
+                                  {/* Complete Work Description (Full Text, No Truncation) */}
                                   {cellData.notes ? (
-                                    <span className="text-[9px] font-medium text-slate-700 bg-white px-1.5 py-0.5 rounded border border-slate-200/80 truncate max-w-[95px] block shadow-2xs" title={cellData.notes}>
+                                    <p className="text-[10px] font-medium text-slate-800 bg-white/95 px-2 py-1 rounded-md border border-slate-200 text-left whitespace-normal break-words w-full shadow-2xs leading-tight">
                                       {cellData.notes}
-                                    </span>
-                                  ) : (
-                                    <span className="text-[9px] font-medium text-slate-400 opacity-80 truncate max-w-[85px]">
-                                      {log.projectName ? log.projectName.split(' ')[0] : 'Done'}
-                                    </span>
-                                  )}
+                                    </p>
+                                  ) : null}
                                 </div>
                               ) : cellData.type === 'notes_only' ? (
-                                <div className="flex flex-col items-center justify-center gap-0.5">
-                                  <span className="text-[10px] font-bold text-slate-800 bg-white px-1.5 py-0.5 rounded border border-slate-200 truncate max-w-[95px] block shadow-2xs" title={cellData.notes}>
+                                <div className="flex flex-col items-center justify-center gap-1 w-full">
+                                  {/* Full Project Name Badge */}
+                                  <span
+                                    className="inline-flex items-center gap-1 text-[10px] font-extrabold text-slate-800 bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-2xs whitespace-normal break-words self-start"
+                                    title={`Project: ${projectName}`}
+                                  >
+                                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: projectColor }}></span>
+                                    <span>{projectName}</span>
+                                  </span>
+
+                                  {/* Complete Work Description (Full Text, No Truncation) */}
+                                  <p className="text-[10px] font-semibold text-slate-900 bg-white/95 px-2 py-1 rounded-md border border-slate-200 text-left whitespace-normal break-words w-full shadow-2xs leading-tight">
                                     {cellData.notes}
-                                  </span>
-                                  <span className="text-[9px] text-slate-400 font-medium opacity-80 truncate max-w-[85px]">
-                                    {log.projectName ? log.projectName.split(' ')[0] : 'Note'}
-                                  </span>
+                                  </p>
                                 </div>
                               ) : (
-                                <span className="text-slate-300 text-xs">-</span>
+                                <span className="text-slate-300 text-xs font-mono">-</span>
                               )}
                             </div>
                           </td>
@@ -523,7 +539,7 @@ export const LeadPortal = ({
                                   ) : cellData.type === 'lunch' ? (
                                     <span className="text-amber-800 font-bold">🍱 Lunch Break {cellData.notes ? ` - ${cellData.notes}` : ''}</span>
                                   ) : (
-                                    <span className="truncate">{l.notes || `${l.taskCount} tasks`}</span>
+                                    <span className="whitespace-normal break-words">{l.notes || `${l.taskCount} tasks`}</span>
                                   )}
                                 </div>
                               );

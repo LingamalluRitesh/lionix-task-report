@@ -698,7 +698,7 @@ class Database {
           hl.id,
           hl.member_id as "memberId",
           hl.project_id as "projectId",
-          hl.project_name as "projectName",
+          COALESCE(p.name, hl.project_name, 'Project') as "projectName",
           hl.date,
           hl.hour_slot as "hourSlot",
           hl.task_count as "taskCount",
@@ -710,7 +710,7 @@ class Database {
           COALESCE(m.role, 'Team Member') as "memberRole",
           COALESCE(m.department, 'IT') as "memberDepartment",
           COALESCE(m.avatar_color, '#0284c7') as "memberColor",
-          COALESCE(p.code, 'Data') as "projectCode",
+          COALESCE(p.code, 'PROJ') as "projectCode",
           COALESCE(p.color, '#0284c7') as "projectColor"
         FROM hourly_logs hl
         LEFT JOIN members m ON hl.member_id = m.id
