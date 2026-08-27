@@ -12,7 +12,7 @@ import {
   Sun,
   Moon,
   CalendarOff,
-  Sparkles
+  Briefcase
 } from 'lucide-react';
 
 export const MORNING_HOURS = [
@@ -41,12 +41,12 @@ export const NIGHT_HOURS = [
 
 export const HourlyTaskGrid = ({
   memberId,
+  member,
   selectedDate,
   currentShift = 'morning',
   onShiftChange,
   projects = [],
   logs = [],
-  dailyTaskGoal = 100,
   onSaveLog,
   onDeleteLog
 }) => {
@@ -60,14 +60,18 @@ export const HourlyTaskGrid = ({
 
   const activeHours = activeShift === 'night' ? NIGHT_HOURS : MORNING_HOURS;
 
+  // Derive default project assigned by Admin / Team Lead
+  const defaultProjectId = member?.assignedProjectId || (projects.length > 0 ? projects[0].id : '');
+  const defaultProjectName = member?.assignedProjectName || (projects.find(p => p.id === defaultProjectId)?.name || (projects[0]?.name || ''));
+
   useEffect(() => {
     const stateMap = {};
 
     activeHours.forEach(slot => {
       stateMap[slot] = {
         id: null,
-        projectId: projects[0]?.id || '',
-        projectName: projects[0]?.name || '',
+        projectId: defaultProjectId,
+        projectName: defaultProjectName,
         taskCount: 0,
         notes: '',
         status: 'Completed',
@@ -80,8 +84,8 @@ export const HourlyTaskGrid = ({
       if (activeHours.includes(log.hourSlot)) {
         stateMap[log.hourSlot] = {
           id: log.id,
-          projectId: log.projectId || (projects[0]?.id || ''),
-          projectName: log.projectName || (projects[0]?.name || ''),
+          projectId: log.projectId || defaultProjectId,
+          projectName: log.projectName || defaultProjectName,
           taskCount: log.taskCount !== undefined ? log.taskCount : 0,
           notes: log.notes || '',
           status: log.status || 'Completed',
@@ -92,13 +96,13 @@ export const HourlyTaskGrid = ({
     });
 
     setFormState(stateMap);
-  }, [logs, projects, memberId, selectedDate, activeShift]);
+  }, [logs, projects, memberId, member, selectedDate, activeShift, defaultProjectId, defaultProjectName]);
 
   const handleFieldChange = (slot, field, value) => {
     setFormState(prev => {
       const current = prev[slot] || {
-        projectId: projects[0]?.id || '',
-        projectName: projects[0]?.name || '',
+        projectId: defaultProjectId,
+        projectName: defaultProjectName,
         taskCount: 0,
         notes: '',
         status: 'Completed'
@@ -143,8 +147,8 @@ export const HourlyTaskGrid = ({
         memberId,
         date: selectedDate,
         hourSlot: slot,
-        projectId: data.projectId || projects[0]?.id,
-        projectName: data.projectName || projects[0]?.name,
+        projectId: data.projectId || defaultProjectId,
+        projectName: data.projectName || defaultProjectName,
         taskCount: finalCount,
         notes: data.notes || '',
         status: data.status || 'Completed'
@@ -178,8 +182,8 @@ export const HourlyTaskGrid = ({
         memberId,
         date: selectedDate,
         hourSlot: slot,
-        projectId: current.projectId || projects[0]?.id,
-        projectName: current.projectName || projects[0]?.name,
+        projectId: current.projectId || defaultProjectId,
+        projectName: current.projectName || defaultProjectName,
         taskCount: 0,
         notes: 'On Leave',
         status: 'On Leave'
@@ -209,8 +213,8 @@ export const HourlyTaskGrid = ({
         ...prev,
         [slot]: {
           id: null,
-          projectId: projects[0]?.id || '',
-          projectName: projects[0]?.name || '',
+          projectId: defaultProjectId,
+          projectName: defaultProjectName,
           taskCount: 0,
           notes: '',
           status: 'Completed',
@@ -237,11 +241,11 @@ export const HourlyTaskGrid = ({
   const loggedCount = activeHours.filter(s => formState[s]?.isSaved && formState[s]?.id).length;
   const progressPercent = Math.round((loggedCount / activeHours.length) * 100);
 
-  // Determine current active project and its unique target goal
-  const firstActiveEntry = activeHours.map(s => formState[s]).find(e => e?.projectId);
-  const selectedProjId = firstActiveEntry?.projectId || projects[0]?.id;
-  const currentProject = projects.find(p => p.id === selectedProjId) || projects[0];
-  const projectSpecificDailyGoal = currentProject?.dailyGoal || dailyTaskGoal || 100;
+  // Determine active project being worked on by the employee
+  const activeLogWithProj = activeHours.map(s => formState[s]).find(e => e?.projectId && (e?.isSaved || Number(e?.taskCount) > 0 || (e?.notes && e.notes.trim() !== '')));
+  const activeProjectId = activeLogWithProj?.projectId || formState[activeHours[0]]?.projectId || defaultProjectId;
+  const currentProject = projects.find(p => p.id === activeProjectId) || projects[0];
+  const projectSpecificDailyGoal = currentProject?.dailyGoal || 100;
 
   // Check if today is completely on leave
   const isEntireDayOnLeave = activeHours.every(slot => {
@@ -277,14 +281,15 @@ export const HourlyTaskGrid = ({
                     🏖️ Entire Day On Leave
                   </span>
                 ) : (
-                  <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1.5 font-mono shadow-2xs">
+                  /* Employee ONLY sees the target goal of their specific project */
+                  <span className="text-[11px] font-black px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1.5 font-mono shadow-2xs">
                     <Target className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Target: <strong>{projectSpecificDailyGoal} tasks/day</strong> ({currentProject?.name || 'Project'})</span>
+                    <span>{currentProject?.name || 'Project'} Goal: <strong>{projectSpecificDailyGoal} tasks/day</strong></span>
                   </span>
                 )}
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Log your hourly output. Target task goal updates dynamically based on your selected project.
+                Log your hourly task output. You can switch projects worked per hour slot.
               </p>
             </div>
           </div>
@@ -376,16 +381,13 @@ export const HourlyTaskGrid = ({
         {activeHours.map((slot, index) => {
           const entry = formState[slot] || {
             taskCount: 0,
-            projectId: projects[0]?.id || '',
-            projectName: projects[0]?.name || '',
+            projectId: defaultProjectId,
+            projectName: defaultProjectName,
             notes: '',
             status: 'Completed',
             isDirty: false,
             isSaved: false
           };
-
-          const rowProject = projects.find(p => p.id === entry.projectId) || projects[0];
-          const rowProjectGoal = rowProject?.dailyGoal || dailyTaskGoal || 100;
 
           const isLeave = entry.status === 'On Leave' || entry.notes?.toLowerCase() === 'on leave' || entry.notes?.toLowerCase() === 'leave';
           const isLunch = entry.status === 'Lunch Break' || entry.notes?.toLowerCase().includes('lunch');
@@ -453,16 +455,11 @@ export const HourlyTaskGrid = ({
                   </div>
                 </div>
 
-                {/* 2. Project Selection & Goal Pill (2 cols) */}
-                <div className="lg:col-span-2">
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block lg:hidden">
-                      Assigned Project
-                    </label>
-                    <span className="text-[10px] font-mono font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60">
-                      Goal: {rowProjectGoal}
-                    </span>
-                  </div>
+                {/* 2. Project Selection (Clean - NO other project goals displayed) (3 cols) */}
+                <div className="lg:col-span-3">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                    Project Worked
+                  </label>
                   <div className="relative">
                     <select
                       value={entry.projectId || ''}
@@ -473,7 +470,7 @@ export const HourlyTaskGrid = ({
                       {hasProjects ? (
                         projects.map(proj => (
                           <option key={proj.id} value={proj.id}>
-                            {proj.name} ({proj.dailyGoal || 100}/day)
+                            {proj.name}
                           </option>
                         ))
                       ) : (
@@ -486,7 +483,7 @@ export const HourlyTaskGrid = ({
 
                 {/* 3. Number of Tasks Completed Input (2 cols) */}
                 <div className="lg:col-span-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1 lg:hidden">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                     No. of Tasks
                   </label>
                   <div className="relative">
@@ -508,23 +505,23 @@ export const HourlyTaskGrid = ({
                   </div>
                 </div>
 
-                {/* 4. Task Description / Work Info (3 cols) */}
-                <div className="lg:col-span-3">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1 lg:hidden">
+                {/* 4. Task Description / Work Info (2 cols) */}
+                <div className="lg:col-span-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                     Work Info / Description
                   </label>
                   <input
                     type="text"
                     disabled={!hasProjects}
-                    placeholder={isLeave ? 'On Leave' : isLunch ? 'Lunch Break' : 'Enter work details / description...'}
+                    placeholder={isLeave ? 'On Leave' : isLunch ? 'Lunch Break' : 'Enter work details...'}
                     value={entry.notes || ''}
                     onChange={(e) => handleFieldChange(slot, 'notes', e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-2xl px-3.5 py-2.5 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none hover:border-slate-300 transition-all shadow-xs disabled:bg-slate-100 disabled:cursor-not-allowed font-medium"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-2xl px-3 py-2.5 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none hover:border-slate-300 transition-all shadow-xs disabled:bg-slate-100 disabled:cursor-not-allowed font-medium"
                   />
                 </div>
 
                 {/* 5. Status & Save Action (2 cols) */}
-                <div className="lg:col-span-2 flex items-center justify-end gap-1.5">
+                <div className="lg:col-span-2 flex items-center justify-end gap-1.5 pt-4 lg:pt-0">
                   {/* Status Dropdown */}
                   <select
                     value={entry.status || 'Completed'}

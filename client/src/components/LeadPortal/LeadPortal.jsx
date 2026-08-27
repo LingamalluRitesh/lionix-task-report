@@ -15,7 +15,8 @@ import {
   FileText,
   Lock,
   Sun,
-  Moon
+  Moon,
+  Briefcase
 } from 'lucide-react';
 import { StatCard } from '../UI/StatCard.jsx';
 import { api } from '../../services/api.js';
@@ -90,6 +91,7 @@ export const LeadPortal = ({
   currentUser,
   selectedDate,
   currentShift = 'morning',
+  projects = [],
   onShiftChange,
   onDateChange,
   onExportExcel,
@@ -98,12 +100,12 @@ export const LeadPortal = ({
   const [viewMode, setViewMode] = useState('matrix'); // 'matrix' | 'daily'
   const [activeShift, setActiveShift] = useState(currentShift);
   const [leadData, setLeadData] = useState({
-    teamMembers: [],
-    teamLogs: [],
-    teamSummaries: [],
     totalTeamTasks: 0,
-    totalTeamHours: 0,
-    assignedCount: 0
+    totalHoursLogged: 0,
+    avgTeamTasksPerHour: '0.0',
+    topTeamProject: 'None',
+    teamMembers: [],
+    teamSummaries: []
   });
   const [matrixData, setMatrixData] = useState({ allHours: [], matrix: [] });
   const [loading, setLoading] = useState(true);
@@ -113,70 +115,76 @@ export const LeadPortal = ({
     setActiveShift(currentShift);
   }, [currentShift]);
 
-  const fetchTeamData = async () => {
+  const allHours = activeShift === 'night' ? NIGHT_HOURS : MORNING_HOURS;
+
+  const fetchLeadData = async () => {
     if (!currentUser?.id) return;
     try {
-      const [overviewRes, matrixRes] = await Promise.all([
-        api.getLeadOverview(currentUser.id, selectedDate),
+      const [overview, matrix] = await Promise.all([
+        api.getLeadOverview(currentUser.id, { date: selectedDate }),
         api.getMatrix(selectedDate, currentUser.id)
       ]);
 
-      if (overviewRes) setLeadData(overviewRes);
-      if (matrixRes) setMatrixData(matrixRes);
+      if (overview) {
+        setLeadData(overview);
+      }
+      if (matrix) {
+        setMatrixData(matrix);
+      }
     } catch (err) {
-      console.error('Error loading lead overview:', err);
+      console.error('Error fetching Lead Portal data:', err);
     } finally {
       setLoading(false);
-      setIsRefreshing(false);
     }
   };
 
   useEffect(() => {
-    setLoading(true);
-    fetchTeamData();
+    fetchLeadData();
   }, [currentUser?.id, selectedDate, activeShift]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await fetchTeamData();
+    await fetchLeadData();
+    setIsRefreshing(false);
+  };
+
+  const handleAssignProjectToTeammate = async (memberId, projectId) => {
+    const proj = projects.find(p => p.id === projectId);
+    try {
+      await api.assignMemberProject(memberId, projectId, proj?.name || '');
+      await fetchLeadData();
+    } catch (err) {
+      alert('Failed to assign project to teammate');
+    }
   };
 
   const isNightShift = activeShift === 'night';
-  const isCoordinator = (currentUser?.role || '').toLowerCase().includes('coordinator');
-  const roleTitle = isCoordinator ? 'Team Coordinator' : 'Team Lead';
-  const allHours = matrixData.allHours?.length > 0 ? matrixData.allHours : (isNightShift ? NIGHT_HOURS : MORNING_HOURS);
 
   return (
     <div className="space-y-6">
-      {/* Lead Portal Banner */}
-      <div className={`text-white rounded-3xl p-6 shadow-md transition-all ${
+      {/* Top Banner Card for Team Lead */}
+      <div className={`rounded-3xl p-6 text-white shadow-xl transition-all ${
         isNightShift
-          ? 'bg-gradient-to-r from-indigo-700 via-purple-700 to-indigo-900 shadow-indigo-500/20'
-          : 'bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 shadow-amber-500/20'
+          ? 'bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/30'
+          : 'bg-gradient-to-r from-amber-600 via-amber-700 to-slate-900 border border-amber-500/30'
       }`}>
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-white shadow-inner shrink-0">
-              {isCoordinator ? <Sparkles className="w-6 h-6" /> : <Crown className="w-6 h-6" />}
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-extrabold uppercase tracking-wider bg-white/20 px-2.5 py-0.5 rounded-full">
-                  {roleTitle} Portal
-                </span>
-                <span className="text-xs font-bold bg-black/20 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                  <Lock className="w-3 h-3" /> View-Only Access
-                </span>
-                <span className="text-xs font-bold bg-white/20 px-2.5 py-0.5 rounded-full flex items-center gap-1 font-mono">
-                  {isNightShift ? '🌙 Night Shift: 8:00 PM – 5:00 AM' : '☀️ Morning Shift: 9:00 AM – 6:00 PM'}
-                </span>
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-amber-300 shadow-inner">
+                <Crown className="w-5 h-5" />
               </div>
-              <h1 className="text-xl font-extrabold tracking-tight mt-0.5">
-                {currentUser.name}’s Team Overview
-              </h1>
-              <p className="text-xs text-amber-100 mt-0.5">
-                Monitoring <strong>{leadData.assignedCount} assigned teammates</strong>. Full project names and complete work descriptions are shown.
-              </p>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xl font-black tracking-tight">{currentUser.name} — Team Lead Portal</h1>
+                  <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-300/30 font-mono flex items-center gap-1">
+                    <Lock className="w-3 h-3" /> View-Only Access
+                  </span>
+                </div>
+                <p className="text-xs text-white/80">
+                  Assigned Team Workforce Intelligence &amp; Project Progress Tracking ({leadData.teamMembers.length} Teammates)
+                </p>
+              </div>
             </div>
           </div>
 
@@ -262,305 +270,365 @@ export const LeadPortal = ({
           color="emerald"
         />
         <StatCard
-          title="Total Hours Logged"
-          value={`${leadData.totalTeamHours} hrs`}
-          subtitle={isNightShift ? '8:00 PM – 5:00 AM night shift logs' : '9:00 AM – 6:00 PM morning shift logs'}
-          icon={Clock}
-          color="amber"
-        />
-        <StatCard
           title="Assigned Teammates"
           value={leadData.teamMembers.length}
-          subtitle="Team members under your coordination"
+          subtitle="Members assigned to your supervision"
           icon={Users}
           color="sky"
         />
+        <StatCard
+          title="Avg Team Velocity"
+          value={`${leadData.avgTeamTasksPerHour} / hr`}
+          subtitle="Real-time completed tasks per working hour"
+          icon={TrendingUp}
+          color="amber"
+        />
       </div>
 
-      {/* View Switcher Header */}
-      <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h2 className="text-base font-extrabold text-slate-900">
-              Assigned Team Workprogress
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Live hourly output &amp; complete work description notes logged by your assigned team members.
-            </p>
-          </div>
-
-          <div className="flex items-center p-1 bg-slate-100 rounded-2xl border border-slate-200/60 self-start sm:self-auto">
+      {/* View Switcher Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200/80 rounded-3xl p-4 shadow-sm">
+        <div className="flex items-center gap-2">
+          <div className="p-1 bg-slate-100 rounded-2xl flex items-center border border-slate-200">
             <button
               type="button"
               onClick={() => setViewMode('matrix')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                viewMode === 'matrix' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                viewMode === 'matrix'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-900'
               }`}
             >
-              <TableIcon className="w-3.5 h-3.5" />
-              <span>Hourly Matrix</span>
+              <TableIcon className="w-3.5 h-3.5 text-amber-600" />
+              <span>Hourly Work Matrix</span>
             </button>
             <button
               type="button"
               onClick={() => setViewMode('daily')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                viewMode === 'daily' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                viewMode === 'daily'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-900'
               }`}
             >
-              <Eye className="w-3.5 h-3.5" />
-              <span>Daily Breakdown</span>
+              <FileText className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Daily Team Summary</span>
             </button>
           </div>
+          <span className="text-xs text-slate-400 font-medium hidden md:inline">
+            (View-Only Matrix &amp; Project Assignments)
+          </span>
         </div>
 
-        {/* View-Only Hourly Matrix */}
-        {viewMode === 'matrix' && (
-          <div className="mt-5 overflow-x-auto pb-4">
-            <table className="w-full text-left border-collapse min-w-[1300px]">
-              <thead>
-                <tr className="border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  <th className="py-3 px-3 sticky left-0 bg-white z-10 w-56">Assigned Teammate</th>
-                  {allHours.map(hour => (
-                    <th key={hour} className="py-3 px-2 text-center font-mono whitespace-nowrap min-w-[145px]">
-                      {hour.split(' - ')[0]}
-                    </th>
-                  ))}
-                  <th className="py-3 px-3 text-right font-mono sticky right-0 bg-white z-10 w-28">Total Tasks</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-xs">
-                {matrixData.matrix && matrixData.matrix.length > 0 ? (
-                  matrixData.matrix.map((row) => (
-                    <tr key={row.member.id} className="hover:bg-slate-50/70 transition-colors">
-                      {/* Member Info */}
-                      <td className="py-3.5 px-3 sticky left-0 bg-white/95 z-10 border-r border-slate-100">
-                        <div className="flex items-center gap-2.5">
-                          <div
-                            className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-xs"
-                            style={{ backgroundColor: row.member.avatarColor || '#0284c7' }}
-                          >
-                            {row.member.name.charAt(0)}
-                          </div>
-                          <div className="truncate">
-                            <span className="font-bold text-slate-900 block truncate">{row.member.name}</span>
-                            <span className="text-[10px] text-slate-400 truncate block">{row.member.role}</span>
+        <div className="flex items-center gap-3 text-xs text-slate-600 flex-wrap">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded bg-rose-500"></span> Leave (Red)
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded bg-amber-400"></span> Lunch Break
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded bg-emerald-500"></span> Completed Tasks
+          </span>
+        </div>
+      </div>
+
+      {/* TAB 1: VIEW-ONLY HOURLY WORK MATRIX */}
+      {viewMode === 'matrix' && (
+        <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm overflow-x-auto">
+          <div className="pb-4 mb-4 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-black text-slate-900">
+                Assigned Team Hourly Progress — {selectedDate}
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Displays full project names and complete visible work descriptions for all {allHours.length} hours of the shift.
+              </p>
+            </div>
+            <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+              {allHours.length} Active Slots
+            </span>
+          </div>
+
+          <table className="w-full text-left border-collapse min-w-[900px]">
+            <thead>
+              <tr className="border-b border-slate-200 text-slate-400 uppercase text-[10px] font-extrabold tracking-wider bg-slate-50/70">
+                <th className="py-3 px-3 sticky left-0 bg-slate-50 z-20 w-56 border-r border-slate-200">
+                  Teammate &amp; Assigned Project
+                </th>
+                {allHours.map((hour) => (
+                  <th key={hour} className="py-3 px-2 text-center whitespace-nowrap min-w-[130px]">
+                    <span className="font-mono text-[10px] text-slate-700 block">{hour.split(' - ')[0]}</span>
+                    <span className="text-[8px] text-slate-400 font-sans block">{hour.split(' - ')[1]}</span>
+                  </th>
+                ))}
+                <th className="py-3 px-3 text-right sticky right-0 bg-slate-50 z-20 w-24 border-l border-slate-200">
+                  Total
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-xs">
+              {matrixData.matrix && matrixData.matrix.length > 0 ? (
+                matrixData.matrix.map((row) => (
+                  <tr key={row.member.id} className="hover:bg-slate-50/70 transition-colors">
+                    {/* Member Info & Project Assignment */}
+                    <td className="py-3.5 px-3 sticky left-0 bg-white/95 z-10 border-r border-slate-100">
+                      <div className="flex items-start gap-2.5">
+                        <div
+                          className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-xs mt-0.5"
+                          style={{ backgroundColor: row.member.avatarColor || '#0284c7' }}
+                        >
+                          {row.member.name.charAt(0)}
+                        </div>
+                        <div className="min-w-0">
+                          <span className="font-bold text-slate-900 block truncate">{row.member.name}</span>
+                          <span className="text-[10px] text-slate-400 block">{row.member.role}</span>
+                          
+                          {/* Project Assignment Dropdown for Team Lead */}
+                          <div className="mt-1 flex items-center gap-1">
+                            <select
+                              value={row.member.assignedProjectId || ''}
+                              onChange={(e) => handleAssignProjectToTeammate(row.member.id, e.target.value)}
+                              className="text-[10px] font-extrabold text-indigo-950 bg-indigo-50/80 border border-indigo-200 rounded-md px-1.5 py-0.5 max-w-[130px] truncate cursor-pointer focus:outline-none"
+                              title="Assign Project to Teammate"
+                            >
+                              <option value="">No Project</option>
+                              {projects.map(p => (
+                                <option key={p.id} value={p.id}>{p.name}</option>
+                              ))}
+                            </select>
                           </div>
                         </div>
-                      </td>
+                      </div>
+                    </td>
 
-                      {/* Hourly Cells (Full Project Name, Complete Work Description, Task Count) */}
-                      {allHours.map(hour => {
-                        const log = row.hours ? row.hours[hour] : null;
-                        const cellData = getLeadLogCellData(log);
-                        const projectName = log?.projectName || 'General';
-                        const projectColor = log?.projectColor || '#0284c7';
+                    {/* Hourly Cells */}
+                    {allHours.map(hour => {
+                      const log = row.hours ? row.hours[hour] : null;
+                      const cellData = getLeadLogCellData(log);
+                      const projectName = log?.projectName || 'General';
+                      const projectColor = log?.projectColor || '#0284c7';
 
-                        let cellClass = 'bg-slate-50 text-slate-400 border-slate-200';
-                        if (cellData.type === 'leave') {
-                          cellClass = 'bg-rose-50/80 text-rose-700 border-rose-300 font-bold';
-                        } else if (cellData.type === 'lunch') {
-                          cellClass = 'bg-amber-50/80 text-amber-900 border-amber-300 font-bold';
-                        } else if (cellData.type === 'tasks') {
-                          cellClass = 'bg-emerald-50/60 text-emerald-950 border-emerald-200';
-                        } else if (cellData.type === 'notes_only') {
-                          cellClass = 'bg-slate-50 text-slate-900 border-slate-300';
-                        }
+                      let cellClass = 'bg-slate-50 text-slate-400 border-slate-200';
+                      if (cellData.type === 'leave') {
+                        cellClass = 'bg-rose-50/80 text-rose-700 border-rose-300 font-bold';
+                      } else if (cellData.type === 'lunch') {
+                        cellClass = 'bg-amber-50/80 text-amber-800 border-amber-300 font-bold';
+                      } else if (cellData.type === 'tasks' || cellData.type === 'notes_only') {
+                        cellClass = 'bg-emerald-50/40 text-emerald-950 border-emerald-200';
+                      }
 
-                        return (
-                          <td key={hour} className="py-2.5 px-1.5 text-center align-top">
-                            <div className={`w-full p-2 rounded-2xl border text-center transition-all shadow-2xs min-h-[64px] flex flex-col justify-center items-center gap-1.5 ${cellClass}`}>
-                              {cellData.type === 'leave' ? (
-                                <div className="flex flex-col items-center justify-center gap-1 w-full">
-                                  <span className="text-[11px] font-black text-rose-700 bg-rose-100 px-2.5 py-0.5 rounded-md border border-rose-300 uppercase tracking-wide">
-                                    🏖️ Leave
+                      return (
+                        <td key={hour} className="py-2 px-1.5 text-center align-top min-w-[130px]">
+                          <div className={`p-2 rounded-2xl border min-h-[58px] flex flex-col items-center justify-center gap-1 transition-all ${cellClass}`}>
+                            {cellData.type === 'leave' ? (
+                              <div className="flex flex-col items-center justify-center gap-1 w-full">
+                                <span className="text-[11px] font-black text-rose-700 bg-rose-100 px-2.5 py-0.5 rounded-md border border-rose-300 flex items-center gap-1">
+                                  🏖️ Leave
+                                </span>
+                                {cellData.notes ? (
+                                  <p className="text-[10px] font-medium text-rose-900 bg-white/95 px-2 py-1 rounded-md border border-rose-200 text-left whitespace-normal break-words w-full leading-tight shadow-2xs">
+                                    {cellData.notes}
+                                  </p>
+                                ) : null}
+                              </div>
+                            ) : cellData.type === 'lunch' ? (
+                              <div className="flex flex-col items-center justify-center gap-1 w-full">
+                                <span className="text-[11px] font-black text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-md border border-amber-300 flex items-center gap-1">
+                                  🍱 Lunch
+                                </span>
+                                {cellData.notes ? (
+                                  <p className="text-[10px] font-medium text-amber-950 bg-white/95 px-2 py-1 rounded-md border border-amber-200 text-left whitespace-normal break-words w-full leading-tight shadow-2xs">
+                                    {cellData.notes}
+                                  </p>
+                                ) : null}
+                              </div>
+                            ) : cellData.type === 'tasks' ? (
+                              <div className="flex flex-col items-center justify-center gap-1 w-full">
+                                <div className="flex items-center justify-between gap-1 w-full flex-wrap">
+                                  <span className="inline-flex items-center gap-1 font-mono font-black text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-md text-[11px]">
+                                    {cellData.tasks} <span className="text-[9px] font-bold text-emerald-600">tasks</span>
                                   </span>
-                                  {cellData.notes ? (
-                                    <p className="text-[10px] font-medium text-rose-900 bg-white/95 px-2 py-1 rounded-md border border-rose-200 text-left whitespace-normal break-words w-full leading-tight shadow-2xs">
-                                      {cellData.notes}
-                                    </p>
-                                  ) : null}
-                                </div>
-                              ) : cellData.type === 'lunch' ? (
-                                <div className="flex flex-col items-center justify-center gap-1 w-full">
-                                  <span className="text-[11px] font-black text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-md border border-amber-300 flex items-center gap-1">
-                                    🍱 Lunch
-                                  </span>
-                                  {cellData.notes ? (
-                                    <p className="text-[10px] font-medium text-amber-950 bg-white/95 px-2 py-1 rounded-md border border-amber-200 text-left whitespace-normal break-words w-full leading-tight shadow-2xs">
-                                      {cellData.notes}
-                                    </p>
-                                  ) : null}
-                                </div>
-                              ) : cellData.type === 'tasks' ? (
-                                <div className="flex flex-col items-center justify-center gap-1 w-full">
-                                  {/* Top Row: Task Count & Full Project Name */}
-                                  <div className="flex items-center justify-between gap-1 w-full flex-wrap">
-                                    <span className="inline-flex items-center gap-1 font-mono font-black text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-md text-[11px]">
-                                      {cellData.tasks} <span className="text-[9px] font-bold text-emerald-600">tasks</span>
-                                    </span>
-                                    <span
-                                      className="inline-flex items-center gap-1 text-[10px] font-extrabold text-slate-800 bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-2xs whitespace-normal break-words"
-                                      title={`Project: ${projectName}`}
-                                    >
-                                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: projectColor }}></span>
-                                      <span>{projectName}</span>
-                                    </span>
-                                  </div>
-
-                                  {/* Complete Work Description (Full Text, No Truncation) */}
-                                  {cellData.notes ? (
-                                    <p className="text-[10px] font-medium text-slate-800 bg-white/95 px-2 py-1 rounded-md border border-slate-200 text-left whitespace-normal break-words w-full shadow-2xs leading-tight">
-                                      {cellData.notes}
-                                    </p>
-                                  ) : null}
-                                </div>
-                              ) : cellData.type === 'notes_only' ? (
-                                <div className="flex flex-col items-center justify-center gap-1 w-full">
-                                  {/* Full Project Name Badge */}
                                   <span
-                                    className="inline-flex items-center gap-1 text-[10px] font-extrabold text-slate-800 bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-2xs whitespace-normal break-words self-start"
+                                    className="inline-flex items-center gap-1 text-[10px] font-extrabold text-slate-800 bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-2xs whitespace-normal break-words"
                                     title={`Project: ${projectName}`}
                                   >
                                     <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: projectColor }}></span>
                                     <span>{projectName}</span>
                                   </span>
+                                </div>
 
-                                  {/* Complete Work Description (Full Text, No Truncation) */}
-                                  <p className="text-[10px] font-semibold text-slate-900 bg-white/95 px-2 py-1 rounded-md border border-slate-200 text-left whitespace-normal break-words w-full shadow-2xs leading-tight">
+                                {cellData.notes ? (
+                                  <p className="text-[10px] font-medium text-slate-800 bg-white/95 px-2 py-1 rounded-md border border-slate-200 text-left whitespace-normal break-words w-full shadow-2xs leading-tight">
                                     {cellData.notes}
                                   </p>
-                                </div>
-                              ) : (
-                                <span className="text-slate-300 text-xs font-mono">-</span>
-                              )}
-                            </div>
-                          </td>
-                        );
-                      })}
-
-                      {/* Total Tasks */}
-                      <td className="py-3.5 px-3 text-right font-mono font-extrabold text-amber-600 sticky right-0 bg-white/95 z-10 border-l border-slate-100 text-sm">
-                        {row.totalTasks}
-                        <span className="text-[10px] text-slate-400 block font-normal font-sans">
-                          {row.hoursWorked} hrs
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={allHours.length + 2} className="py-8 text-center text-slate-400 font-medium">
-                      No teammates are currently assigned to your team. Please ask the Administrator to assign team members.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* View-Only Daily Breakdown */}
-        {viewMode === 'daily' && (
-          <div className="mt-5 overflow-x-auto">
-            <table className="w-full text-left min-w-[900px]">
-              <thead>
-                <tr className="border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  <th className="pb-3 pl-2">Teammate</th>
-                  <th className="pb-3 text-center">Total Tasks</th>
-                  <th className="pb-3 text-center">Hours Worked</th>
-                  <th className="pb-3 text-center">Tasks / Hr</th>
-                  <th className="pb-3">Projects Breakdown</th>
-                  <th className="pb-3">Work Descriptions Logged</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-xs">
-                {leadData.teamSummaries && leadData.teamSummaries.length > 0 ? (
-                  leadData.teamSummaries.map((summary) => {
-                    const notesList = (summary.logs || []).filter(l => (l.notes && l.notes.trim().length > 0) || Number(l.taskCount) > 0 || l.status === 'On Leave' || l.status === 'Lunch Break');
-
-                    return (
-                      <tr key={summary.memberId} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-3.5 pl-2">
-                          <div className="flex items-center gap-2.5">
-                            <span
-                              className="w-7 h-7 rounded-xl flex items-center justify-center font-bold text-white text-xs shadow-2xs"
-                              style={{ backgroundColor: summary.memberColor || '#0284c7' }}
-                            >
-                              {summary.memberName.charAt(0)}
-                            </span>
-                            <div>
-                              <span className="font-extrabold text-slate-900 block">{summary.memberName}</span>
-                              <span className="text-[10px] text-slate-400">{summary.memberRole}</span>
-                            </div>
-                          </div>
-                        </td>
-
-                        <td className="py-3.5 text-center font-mono font-black text-emerald-600 text-sm">
-                          {summary.totalTasks}
-                        </td>
-
-                        <td className="py-3.5 text-center font-mono text-slate-700 font-bold">
-                          {summary.hoursWorked} hrs
-                        </td>
-
-                        <td className="py-3.5 text-center font-mono font-bold text-sky-600">
-                          {summary.avgTasksPerHour}
-                        </td>
-
-                        <td className="py-3.5">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {summary.projectsList && summary.projectsList.length > 0 ? (
-                              summary.projectsList.map(p => (
+                                ) : null}
+                              </div>
+                            ) : cellData.type === 'notes_only' ? (
+                              <div className="flex flex-col items-center justify-center gap-1 w-full">
                                 <span
-                                  key={p.projectName}
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-800 font-medium"
+                                  className="inline-flex items-center gap-1 text-[10px] font-extrabold text-slate-800 bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-2xs whitespace-normal break-words self-start"
+                                  title={`Project: ${projectName}`}
                                 >
-                                  <span className="truncate max-w-[100px]">{p.projectName}:</span>
-                                  <strong className="font-mono">{p.tasks}</strong>
+                                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: projectColor }}></span>
+                                  <span>{projectName}</span>
                                 </span>
-                              ))
+
+                                <p className="text-[10px] font-semibold text-slate-900 bg-white/95 px-2 py-1 rounded-md border border-slate-200 text-left whitespace-normal break-words w-full shadow-2xs leading-tight">
+                                  {cellData.notes}
+                                </p>
+                              </div>
                             ) : (
-                              <span className="text-slate-400 italic">None</span>
+                              <span className="text-slate-300 text-xs font-mono">-</span>
                             )}
                           </div>
                         </td>
+                      );
+                    })}
 
-                        <td className="py-3.5">
-                          <div className="space-y-1 max-w-xs">
-                            {notesList.map((l, i) => {
-                              const cellData = getLeadLogCellData(l);
-                              return (
-                                <div key={i} className="text-[11px] bg-slate-50 border border-slate-200/70 rounded-lg px-2 py-0.5 flex items-start gap-1.5 text-slate-700">
-                                  <span className="font-mono font-extrabold text-amber-700 shrink-0 text-[10px]">
-                                    {l.hourSlot ? l.hourSlot.split(' - ')[0] : 'Log'}:
-                                  </span>
-                                  {cellData.type === 'leave' ? (
-                                    <span className="text-rose-700 font-extrabold">🏖️ On Leave {cellData.notes ? ` - ${cellData.notes}` : ''}</span>
-                                  ) : cellData.type === 'lunch' ? (
-                                    <span className="text-amber-800 font-bold">🍱 Lunch Break {cellData.notes ? ` - ${cellData.notes}` : ''}</span>
-                                  ) : (
-                                    <span className="whitespace-normal break-words">{l.notes || `${l.taskCount} tasks`}</span>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-400 font-medium">
-                      No task records logged by your team for {selectedDate}.
+                    {/* Total Tasks */}
+                    <td className="py-3.5 px-3 text-right font-mono font-extrabold text-amber-600 sticky right-0 bg-white/95 z-10 border-l border-slate-100 text-sm">
+                      {row.totalTasks}
+                      <span className="text-[10px] text-slate-400 block font-normal font-sans">
+                        {row.hoursWorked} hrs
+                      </span>
                     </td>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={allHours.length + 2} className="py-8 text-center text-slate-400 font-medium">
+                    No teammates are currently assigned to your team. Please ask the Administrator to assign team members.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* TAB 2: DAILY SUMMARY VIEW */}
+      {viewMode === 'daily' && (
+        <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm overflow-x-auto">
+          <div className="pb-4 mb-4 border-b border-slate-100">
+            <h3 className="text-sm font-black text-slate-900">
+              Assigned Team Daily Work Summary — {selectedDate}
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Aggregated daily output and complete work log descriptions for your assigned team.
+            </p>
           </div>
-        )}
-      </div>
+
+          <table className="w-full text-left text-xs min-w-[750px]">
+            <thead>
+              <tr className="border-b border-slate-200 text-slate-400 uppercase text-[10px] font-extrabold tracking-wider bg-slate-50/70">
+                <th className="py-3 pl-2">Teammate &amp; Assigned Project</th>
+                <th className="pb-3 text-center">Total Tasks</th>
+                <th className="pb-3 text-center">Hours Worked</th>
+                <th className="pb-3 text-center">Tasks / Hr</th>
+                <th className="pb-3">Projects Breakdown</th>
+                <th className="pb-3">Work Descriptions Logged</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-xs">
+              {leadData.teamSummaries && leadData.teamSummaries.length > 0 ? (
+                leadData.teamSummaries.map((summary) => {
+                  const notesList = (summary.logs || []).filter(l => (l.notes && l.notes.trim().length > 0) || Number(l.taskCount) > 0 || l.status === 'On Leave' || l.status === 'Lunch Break');
+
+                  return (
+                    <tr key={summary.memberId} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-3.5 pl-2">
+                        <div className="flex items-start gap-2.5">
+                          <span
+                            className="w-7 h-7 rounded-xl flex items-center justify-center font-bold text-white text-xs shadow-2xs mt-0.5"
+                            style={{ backgroundColor: summary.memberColor || '#0284c7' }}
+                          >
+                            {summary.memberName.charAt(0)}
+                          </span>
+                          <div>
+                            <span className="font-extrabold text-slate-900 block">{summary.memberName}</span>
+                            <span className="text-[10px] text-slate-400 block">{summary.memberRole}</span>
+                            <div className="mt-1">
+                              <select
+                                value={summary.assignedProjectId || ''}
+                                onChange={(e) => handleAssignProjectToTeammate(summary.memberId, e.target.value)}
+                                className="text-[10px] font-extrabold text-indigo-950 bg-indigo-50/80 border border-indigo-200 rounded-md px-1.5 py-0.5 max-w-[130px] truncate cursor-pointer focus:outline-none"
+                                title="Assign Project to Teammate"
+                              >
+                                <option value="">No Project</option>
+                                {projects.map(p => (
+                                  <option key={p.id} value={p.id}>{p.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="py-3.5 text-center font-mono font-black text-emerald-600 text-sm">
+                        {summary.totalTasks}
+                      </td>
+
+                      <td className="py-3.5 text-center font-mono text-slate-700 font-bold">
+                        {summary.hoursWorked} hrs
+                      </td>
+
+                      <td className="py-3.5 text-center font-mono font-bold text-sky-600">
+                        {summary.avgTasksPerHour}
+                      </td>
+
+                      <td className="py-3.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {summary.projectsList && summary.projectsList.length > 0 ? (
+                            summary.projectsList.map(p => (
+                              <span
+                                key={p.projectName}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-800 font-medium"
+                              >
+                                <span className="truncate max-w-[100px]">{p.projectName}:</span>
+                                <strong className="font-mono">{p.tasks}</strong>
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-slate-400 italic">None</span>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="py-3.5">
+                        <div className="space-y-1 max-w-xs">
+                          {notesList.map((l, i) => {
+                            const cellData = getLeadLogCellData(l);
+                            return (
+                              <div key={i} className="text-[11px] bg-slate-50 border border-slate-200/70 rounded-lg px-2 py-0.5 flex items-start gap-1.5 text-slate-700">
+                                <span className="font-mono font-extrabold text-amber-700 shrink-0 text-[10px]">
+                                  {l.hourSlot ? l.hourSlot.split(' - ')[0] : 'Log'}:
+                                </span>
+                                {cellData.type === 'leave' ? (
+                                  <span className="text-rose-700 font-extrabold">🏖️ On Leave {cellData.notes ? ` - ${cellData.notes}` : ''}</span>
+                                ) : cellData.type === 'lunch' ? (
+                                  <span className="text-amber-800 font-bold">🍱 Lunch Break {cellData.notes ? ` - ${cellData.notes}` : ''}</span>
+                                ) : (
+                                  <span className="whitespace-normal break-words">{l.notes || `${l.taskCount} tasks`}</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan="6" className="py-8 text-center text-slate-400 font-medium">
+                    No summary data available for your assigned team on this date.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 };

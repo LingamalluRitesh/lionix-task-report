@@ -85,6 +85,25 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// POST assign project to a member
+router.post('/:id/assign-project', async (req, res) => {
+  try {
+    const { projectId, projectName } = req.body;
+    let finalProjectName = projectName;
+    if (projectId && !finalProjectName) {
+      const proj = await db.getProjectById(projectId);
+      if (proj) finalProjectName = proj.name;
+    }
+    const updated = await db.updateMember(req.params.id, {
+      assignedProjectId: projectId || null,
+      assignedProjectName: finalProjectName || null
+    });
+    res.json({ success: true, data: updated, message: `Assigned to ${finalProjectName || 'project'}` });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // DELETE member
 router.delete('/:id', async (req, res) => {
   try {

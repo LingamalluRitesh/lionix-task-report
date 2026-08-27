@@ -121,9 +121,14 @@ class Database {
         role VARCHAR(255) DEFAULT 'Team Member',
         department VARCHAR(255) DEFAULT 'IT',
         avatar_color VARCHAR(50) DEFAULT '#0284c7',
+        assigned_project_id VARCHAR(255),
+        assigned_project_name VARCHAR(255),
         active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
       );
+
+      ALTER TABLE members ADD COLUMN IF NOT EXISTS assigned_project_id VARCHAR(255);
+      ALTER TABLE members ADD COLUMN IF NOT EXISTS assigned_project_name VARCHAR(255);
 
       CREATE TABLE IF NOT EXISTS hourly_logs (
         id VARCHAR(255) PRIMARY KEY,
@@ -412,11 +417,26 @@ class Database {
   // --- Members CRUD ---
   async getMembers(filterActive = false) {
     if (this.usePostgres) {
-      let query = 'SELECT id, name, email, role, department, avatar_color as "avatarColor", active, created_at as "createdAt" FROM members';
+      let query = `
+        SELECT 
+          m.id, 
+          m.name, 
+          m.email, 
+          m.role, 
+          m.department, 
+          m.avatar_color as "avatarColor", 
+          m.active, 
+          m.assigned_project_id as "assignedProjectId",
+          COALESCE(p.name, m.assigned_project_name, '') as "assignedProjectName",
+          COALESCE(p.daily_goal, 100) as "assignedProjectGoal",
+          m.created_at as "createdAt"
+        FROM members m
+        LEFT JOIN projects p ON m.assigned_project_id = p.id
+      `;
       if (filterActive) {
-        query += ' WHERE active = true';
+        query += ' WHERE m.active = true';
       }
-      query += ' ORDER BY name ASC';
+      query += ' ORDER BY m.name ASC';
       const res = await this.pool.query(query);
       return res.rows;
     }
@@ -429,10 +449,23 @@ class Database {
 
   async getMemberById(id) {
     if (this.usePostgres) {
-      const res = await this.pool.query(
-        'SELECT id, name, email, role, department, avatar_color as "avatarColor", active, created_at as "createdAt" FROM members WHERE id = $1',
-        [id]
-      );
+      const res = await this.pool.query(`
+        SELECT 
+          m.id, 
+          m.name, 
+          m.email, 
+          m.role, 
+          m.department, 
+          m.avatar_color as "avatarColor", 
+          m.active, 
+          m.assigned_project_id as "assignedProjectId",
+          COALESCE(p.name, m.assigned_project_name, '') as "assignedProjectName",
+          COALESCE(p.daily_goal, 100) as "assignedProjectGoal",
+          m.created_at as "createdAt"
+        FROM members m
+        LEFT JOIN projects p ON m.assigned_project_id = p.id
+        WHERE m.id = $1
+      `, [id]);
       return res.rows.length > 0 ? res.rows[0] : null;
     }
     const mem = this.localData.members.find(m => m.id === id);
@@ -452,18 +485,20 @@ class Database {
     const role = member.role || 'Python Developer';
     const department = member.department || 'IT';
     const avatarColor = member.avatarColor || '#0284c7';
+    const assignedProjectId = member.assignedProjectId || null;
+    const assignedProjectName = member.assignedProjectName || null;
     const active = member.active !== undefined ? member.active : true;
 
     if (this.usePostgres) {
       const res = await this.pool.query(`
-        INSERT INTO members (id, name, email, password, role, department, avatar_color, active)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        RETURNING id, name, email, role, department, avatar_color as "avatarColor", active, created_at as "createdAt"
-      `, [id, name, cleanEmail, password, role, department, avatarColor, active]);
+        INSERT INTO members (id, name, email, password, role, department, avatar_color, assigned_project_id, assigned_project_name, active)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING id, name, email, role, department, avatar_color as "avatarColor", assigned_project_id as "assignedProjectId", assigned_project_name as "assignedProjectName", active, created_at as "createdAt"
+      `, [id, name, cleanEmail, password, role, department, avatarColor, assignedProjectId, assignedProjectName, active]);
       return res.rows[0];
     }
 
-    const newMem = { id, name, email: cleanEmail, password, role, department, avatarColor, active, createdAt: new Date().toISOString() };
+    const newMem = { id, name, email: cleanEmail, password, role, department, avatarColor, assignedProjectId, assignedProjectName, active, createdAt: new Date().toISOString() };
     this.localData.members.push(newMem);
     this.saveLocalData();
     return this.sanitizeMember(newMem);
@@ -481,6 +516,8 @@ class Database {
       if (updates.role) { fields.push(`role = $${idx++}`); values.push(updates.role); }
       if (updates.department) { fields.push(`department = $${idx++}`); values.push(updates.department); }
       if (updates.avatarColor) { fields.push(`avatar_color = $${idx++}`); values.push(updates.avatarColor); }
+      if (updates.assignedProjectId !== undefined) { fields.push(`assigned_project_id = $${idx++}`); values.push(updates.assignedProjectId || null); }
+      if (updates.assignedProjectName !== undefined) { fields.push(`assigned_project_name = $${idx++}`); values.push(updates.assignedProjectName || null); }
       if (updates.active !== undefined) { fields.push(`active = $${idx++}`); values.push(updates.active); }
 
       if (fields.length === 0) return this.getMemberById(id);
@@ -488,7 +525,7 @@ class Database {
       values.push(id);
       const query = `
         UPDATE members SET ${fields.join(', ')} WHERE id = $${idx}
-        RETURNING id, name, email, role, department, avatar_color as "avatarColor", active, created_at as "createdAt"
+        RETURNING id, name, email, role, department, avatar_color as "avatarColor", assigned_project_id as "assignedProjectId", assigned_project_name as "assignedProjectName", active, created_at as "createdAt"
       `;
       const res = await this.pool.query(query, values);
       return res.rows.length > 0 ? res.rows[0] : null;

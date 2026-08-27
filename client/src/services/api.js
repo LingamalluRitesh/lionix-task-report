@@ -75,6 +75,15 @@ export const api = {
     return res.json();
   },
 
+  async assignMemberProject(memberId, projectId, projectName = '') {
+    const res = await fetch(`${API_BASE}/members/${memberId}/assign-project`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectId, projectName })
+    });
+    return res.json();
+  },
+
   // Team Assignments for Leads & Coordinators
   async getTeamAssignments() {
     const res = await fetch(`${API_BASE}/members/assignments`);

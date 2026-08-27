@@ -2,18 +2,21 @@ import React from 'react';
 import { Target, TrendingUp, Briefcase, Zap, CheckCircle2, Award } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
-export const DailySummaryCard = ({ member, selectedDate, logs = [], projects = [], dailyTaskGoal = 100 }) => {
+export const DailySummaryCard = ({ member, selectedDate, logs = [], projects = [] }) => {
   const totalTasks = logs.reduce((acc, l) => acc + (Number(l.taskCount) || 0), 0);
   const hoursLogged = logs.length;
   const avgTasksPerHour = hoursLogged > 0 ? (totalTasks / hoursLogged).toFixed(1) : '0.0';
 
-  // Determine active project daily goal
-  const firstLogWithProj = logs.find(l => l.projectId);
+  // Determine active project daily goal (from logs or member's assigned project)
+  const firstLogWithProj = logs.find(l => l.projectId && Number(l.taskCount) >= 0);
   const matchedProject = firstLogWithProj
     ? projects.find(p => p.id === firstLogWithProj.projectId)
+    : member?.assignedProjectId
+    ? projects.find(p => p.id === member.assignedProjectId)
     : projects[0];
+
   const projectName = matchedProject?.name || 'Project';
-  const goal = Math.max(1, parseInt(matchedProject?.dailyGoal || dailyTaskGoal, 10) || 100);
+  const goal = Math.max(1, parseInt(matchedProject?.dailyGoal, 10) || 100);
 
   const goalPercent = Math.min(100, Math.round((totalTasks / goal) * 100));
   const isGoalMet = totalTasks >= goal;
@@ -57,7 +60,7 @@ export const DailySummaryCard = ({ member, selectedDate, logs = [], projects = [
           </span>
         </div>
 
-        {/* 🎯 Daily Task Goal Card (Project-Specific Target) */}
+        {/* 🎯 Daily Task Goal Card (Project-Specific Target ONLY) */}
         <div className={`mt-4 p-4 rounded-2xl border transition-all ${
           isGoalMet
             ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
@@ -103,7 +106,7 @@ export const DailySummaryCard = ({ member, selectedDate, logs = [], projects = [
             {isGoalMet ? (
               <span className="text-emerald-700 flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                🎉 Excellent! You have achieved today's task target!
+                🎉 Target achieved for {projectName}!
               </span>
             ) : (
               <span className="text-amber-800">

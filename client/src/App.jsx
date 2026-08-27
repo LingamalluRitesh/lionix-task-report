@@ -515,6 +515,7 @@ const MainApp = () => {
             {currentAdminTab === 'members' && (
               <MemberManager
                 members={members}
+                projects={projects}
                 onCreateMember={handleCreateMember}
                 onUpdateMember={handleUpdateMember}
                 onDeleteMember={handleDeleteMember}
@@ -564,6 +565,7 @@ const MainApp = () => {
               currentUser={currentUser}
               selectedDate={selectedDate}
               currentShift={currentShift}
+              projects={projects}
               onShiftChange={handleShiftChange}
               onDateChange={setSelectedDate}
               onExportExcel={() => handleExportExcel(currentUser.id)}
@@ -614,12 +616,12 @@ const MainApp = () => {
               <div className="lg:col-span-8">
                 <HourlyTaskGrid
                   memberId={currentUser.id}
+                  member={currentUser}
                   selectedDate={selectedDate}
                   currentShift={currentShift}
                   onShiftChange={handleShiftChange}
                   projects={projects}
                   logs={employeeLogs}
-                  dailyTaskGoal={dailyTaskGoal}
                   onSaveLog={handleSaveHourlyLog}
                   onDeleteLog={handleDeleteHourlyLog}
                 />
@@ -632,7 +634,6 @@ const MainApp = () => {
                   selectedDate={selectedDate}
                   logs={employeeLogs}
                   projects={projects}
-                  dailyTaskGoal={dailyTaskGoal}
                 />
               </div>
             </div>
