@@ -117,8 +117,13 @@ export async function generateProfessionalExcelReport({
         if (statusLower === 'on leave' || statusLower === 'leave' || notesLower === 'leave' || notesLower === 'on leave') {
           return `[${time}] [ON LEAVE]${notes && notesLower !== 'leave' && notesLower !== 'on leave' ? ` : ${notes}` : ''}`;
         }
-        if (statusLower === 'lunch break' || statusLower === 'lunch' || notesLower === 'lunch' || notesLower === 'lunch break') {
-          return `[${time}] [LUNCH BREAK]${notes && notesLower !== 'lunch' && notesLower !== 'lunch break' ? ` : ${notes}` : ''}`;
+        if (
+          statusLower === 'lunch break' || statusLower === 'lunch' || notesLower === 'lunch' || notesLower === 'lunch break' ||
+          statusLower === 'dinner break' || statusLower === 'dinner' || notesLower === 'dinner' || notesLower === 'dinner break'
+        ) {
+          const isDinner = statusLower.includes('dinner') || notesLower.includes('dinner') || isNightShift;
+          const breakLabel = isDinner ? '[DINNER BREAK]' : '[LUNCH BREAK]';
+          return `[${time}] ${breakLabel}${notes && notesLower !== 'lunch' && notesLower !== 'lunch break' && notesLower !== 'dinner' && notesLower !== 'dinner break' ? ` : ${notes}` : ''}`;
         }
         if (tasks > 0) {
           const noteStr = notes ? ` : ${notes}` : '';
@@ -273,8 +278,13 @@ export async function generateProfessionalExcelReport({
         if (statusLower === 'on leave' || statusLower === 'leave' || notesLower === 'leave' || notesLower === 'on leave') {
           return notes && notesLower !== 'leave' && notesLower !== 'on leave' ? `[LEAVE]\n${notes}` : 'LEAVE';
         }
-        if (statusLower === 'lunch break' || statusLower === 'lunch' || notesLower === 'lunch' || notesLower === 'lunch break') {
-          return notes && notesLower !== 'lunch' && notesLower !== 'lunch break' ? `[LUNCH]\n${notes}` : 'LUNCH';
+        if (
+          statusLower === 'lunch break' || statusLower === 'lunch' || notesLower === 'lunch' || notesLower === 'lunch break' ||
+          statusLower === 'dinner break' || statusLower === 'dinner' || notesLower === 'dinner' || notesLower === 'dinner break'
+        ) {
+          const isDinner = statusLower.includes('dinner') || notesLower.includes('dinner') || isNightShift;
+          const mealTag = isDinner ? 'DINNER' : 'LUNCH';
+          return (notes && notesLower !== 'lunch' && notesLower !== 'lunch break' && notesLower !== 'dinner' && notesLower !== 'dinner break') ? `[${mealTag}]\n${notes}` : mealTag;
         }
         if (tasks > 0) {
           const noteStr = notes ? `\n${notes}` : '';

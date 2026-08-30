@@ -34,11 +34,16 @@ export function getDailyLogCellData(log) {
     };
   }
 
-  if (statusLower === 'lunch break' || statusLower === 'lunch' || notesLower === 'lunch' || notesLower === 'lunch break') {
+  if (
+    statusLower === 'lunch break' || statusLower === 'lunch' || notesLower === 'lunch' || notesLower === 'lunch break' ||
+    statusLower === 'dinner break' || statusLower === 'dinner' || notesLower === 'dinner' || notesLower === 'dinner break'
+  ) {
+    const isDinner = statusLower.includes('dinner') || notesLower.includes('dinner');
     return {
       type: 'lunch',
-      label: 'Lunch Break',
-      notes: notesLower === 'lunch' || notesLower === 'lunch break' ? '' : notes
+      isDinner,
+      label: isDinner ? 'Dinner Break' : 'Lunch Break',
+      notes: (notesLower === 'lunch' || notesLower === 'lunch break' || notesLower === 'dinner' || notesLower === 'dinner break') ? '' : notes
     };
   }
 

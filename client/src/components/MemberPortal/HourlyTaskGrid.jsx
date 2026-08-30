@@ -376,8 +376,8 @@ export const HourlyTaskGrid = ({
         </div>
       )}
 
-      {/* Dynamic Shift Task Rows with Clean 12-Column Grid Alignment */}
-      <div className="mt-6 space-y-3.5">
+      {/* Dynamic Shift Task Rows with Clean Spacious Responsive Layout */}
+      <div className="mt-6 space-y-4">
         {activeHours.map((slot, index) => {
           const entry = formState[slot] || {
             taskCount: 0,
@@ -390,7 +390,10 @@ export const HourlyTaskGrid = ({
           };
 
           const isLeave = entry.status === 'On Leave' || entry.notes?.toLowerCase() === 'on leave' || entry.notes?.toLowerCase() === 'leave';
-          const isLunch = entry.status === 'Lunch Break' || entry.notes?.toLowerCase().includes('lunch');
+          const isMealBreak = entry.status === 'Lunch Break' || entry.status === 'Dinner Break' || entry.notes?.toLowerCase().includes('lunch') || entry.notes?.toLowerCase().includes('dinner');
+          const mealBreakLabel = activeShift === 'night' ? '🍽️ Dinner' : '🍱 Lunch';
+          const mealBreakFullTitle = activeShift === 'night' ? 'Dinner Break' : 'Lunch Break';
+
           const isSaved = entry.isSaved && !entry.isDirty && entry.id;
           const isDirty = entry.isDirty;
           const isSaving = savingSlot === slot;
@@ -398,7 +401,7 @@ export const HourlyTaskGrid = ({
           let rowBgClass = 'bg-white border-slate-200 hover:border-slate-300 shadow-xs';
           if (isLeave) {
             rowBgClass = 'bg-rose-50/50 border-rose-300 hover:border-rose-400 shadow-xs ring-1 ring-rose-200/50';
-          } else if (isLunch) {
+          } else if (isMealBreak) {
             rowBgClass = 'bg-amber-50/40 border-amber-200 hover:border-amber-300 shadow-xs';
           } else if (isSaved) {
             rowBgClass = 'bg-emerald-50/30 border-emerald-200/80 shadow-xs hover:border-emerald-300';
@@ -409,191 +412,198 @@ export const HourlyTaskGrid = ({
           return (
             <div
               key={slot}
-              className={`p-4 rounded-3xl border transition-all duration-200 ${rowBgClass}`}
+              className={`p-4 sm:p-5 rounded-3xl border transition-all duration-200 ${rowBgClass}`}
             >
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-center">
-                {/* 1. Time Slot & Status Badge (3 cols) */}
-                <div className="lg:col-span-3">
-                  <div className="flex items-center gap-2.5">
-                    <span className={`flex items-center justify-center w-8 h-8 rounded-xl text-xs font-mono font-extrabold shrink-0 ${
-                      isLeave
-                        ? 'bg-rose-100 text-rose-900 font-black'
-                        : isLunch
-                        ? 'bg-amber-100 text-amber-900'
-                        : activeShift === 'night'
-                        ? 'bg-indigo-100/80 text-indigo-900'
-                        : 'bg-amber-100/70 text-amber-900'
-                    }`}>
-                      {index + 1}
+              <div className="flex flex-col xl:flex-row xl:items-center gap-4">
+                {/* 1. Slot Number & Time */}
+                <div className="flex items-center gap-3 xl:w-56 shrink-0">
+                  <span className={`flex items-center justify-center w-9 h-9 rounded-2xl text-xs font-mono font-extrabold shrink-0 shadow-xs ${
+                    isLeave
+                      ? 'bg-rose-100 text-rose-900 font-black'
+                      : isMealBreak
+                      ? 'bg-amber-100 text-amber-900 font-black'
+                      : activeShift === 'night'
+                      ? 'bg-indigo-100/80 text-indigo-900 font-extrabold'
+                      : 'bg-amber-100/70 text-amber-900 font-extrabold'
+                  }`}>
+                    {index + 1}
+                  </span>
+                  <div className="truncate">
+                    <span className="text-xs font-extrabold text-slate-900 font-mono tracking-tight block">
+                      {slot}
                     </span>
-                    <div className="truncate">
-                      <span className="text-xs font-extrabold text-slate-900 font-mono tracking-tight block">
-                        {slot}
-                      </span>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        {isLeave ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-black text-rose-700 bg-rose-100 px-2 py-0.5 rounded-md border border-rose-300">
-                            🏖️ On Leave
-                          </span>
-                        ) : isLunch ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200">
-                            🍱 Lunch Break
-                          </span>
-                        ) : isSaved ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-700 bg-emerald-100/60 px-2 py-0.5 rounded-md">
-                            <Check className="w-3 h-3" /> Logged &amp; Saved
-                          </span>
-                        ) : isDirty ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100/60 px-2 py-0.5 rounded-md animate-pulse">
-                            ● Unsaved Edits
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-slate-400 font-medium">Pending Entry</span>
-                        )}
-                      </div>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      {isLeave ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-black text-rose-700 bg-rose-100 px-2 py-0.5 rounded-md border border-rose-300">
+                          🏖️ On Leave
+                        </span>
+                      ) : isMealBreak ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200">
+                          {activeShift === 'night' ? '🍽️ Dinner Break' : '🍱 Lunch Break'}
+                        </span>
+                      ) : isSaved ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-700 bg-emerald-100/60 px-2 py-0.5 rounded-md">
+                          <Check className="w-3 h-3" /> Logged &amp; Saved
+                        </span>
+                      ) : isDirty ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100/60 px-2 py-0.5 rounded-md animate-pulse">
+                          ● Unsaved Edits
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 font-medium">Pending Entry</span>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                {/* 2. Project Selection (Clean - NO other project goals displayed) (3 cols) */}
-                <div className="lg:col-span-3">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                    Project Worked
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={entry.projectId || ''}
-                      onChange={(e) => handleFieldChange(slot, 'projectId', e.target.value)}
-                      disabled={!hasProjects || isLeave}
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs font-bold rounded-2xl px-3 py-2.5 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none appearance-none cursor-pointer pr-7 hover:border-slate-300 transition-all shadow-xs disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
-                    >
-                      {hasProjects ? (
-                        projects.map(proj => (
-                          <option key={proj.id} value={proj.id}>
-                            {proj.name}
-                          </option>
-                        ))
-                      ) : (
-                        <option value="">No projects added</option>
-                      )}
-                    </select>
-                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                {/* 2. Responsive Form Controls Grid */}
+                <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+                  {/* Project Worked (3 cols) */}
+                  <div className="lg:col-span-3">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      Project Worked
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={entry.projectId || ''}
+                        onChange={(e) => handleFieldChange(slot, 'projectId', e.target.value)}
+                        disabled={!hasProjects || isLeave}
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs font-bold rounded-2xl px-3 py-2.5 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none appearance-none cursor-pointer pr-7 hover:border-slate-300 transition-all shadow-xs disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed truncate"
+                      >
+                        {hasProjects ? (
+                          projects.map(proj => (
+                            <option key={proj.id} value={proj.id}>
+                              {proj.name}
+                            </option>
+                          ))
+                        ) : (
+                          <option value="">No projects added</option>
+                        )}
+                      </select>
+                      <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
                   </div>
-                </div>
 
-                {/* 3. Number of Tasks Completed Input (2 cols) */}
-                <div className="lg:col-span-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                    No. of Tasks
-                  </label>
-                  <div className="relative">
+                  {/* No. of Tasks (2 cols) */}
+                  <div className="lg:col-span-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      No. of Tasks
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        disabled={!hasProjects || isLeave || isMealBreak}
+                        placeholder={isLeave ? 'Leave' : isMealBreak ? (activeShift === 'night' ? 'Dinner' : 'Lunch') : '0'}
+                        value={entry.taskCount === 0 ? '' : entry.taskCount}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0);
+                          handleFieldChange(slot, 'taskCount', val);
+                        }}
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs font-extrabold rounded-2xl pl-3 pr-11 py-2.5 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none hover:border-slate-300 transition-all shadow-xs font-mono disabled:bg-slate-100 disabled:cursor-not-allowed"
+                      />
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] font-extrabold text-slate-400 uppercase pointer-events-none">
+                        {isLeave ? 'OFF' : isMealBreak ? 'BREAK' : 'Tasks'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Work Description (4 cols - generous breathing room) */}
+                  <div className="lg:col-span-4">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      Work Info / Description
+                    </label>
                     <input
-                      type="number"
-                      min="0"
-                      disabled={!hasProjects || isLeave || isLunch}
-                      placeholder={isLeave ? 'Leave' : isLunch ? 'Lunch' : '0'}
-                      value={entry.taskCount === 0 ? '' : entry.taskCount}
-                      onChange={(e) => {
-                        const val = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0);
-                        handleFieldChange(slot, 'taskCount', val);
-                      }}
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs font-extrabold rounded-2xl pl-3 pr-12 py-2.5 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none hover:border-slate-300 transition-all shadow-xs font-mono disabled:bg-slate-100 disabled:cursor-not-allowed"
+                      type="text"
+                      disabled={!hasProjects}
+                      placeholder={isLeave ? 'On Leave' : isMealBreak ? mealBreakFullTitle : 'Enter work details...'}
+                      value={entry.notes || ''}
+                      onChange={(e) => handleFieldChange(slot, 'notes', e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-2xl px-3 py-2.5 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none hover:border-slate-300 transition-all shadow-xs disabled:bg-slate-100 disabled:cursor-not-allowed font-medium"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-extrabold text-slate-400 uppercase pointer-events-none">
-                      {isLeave ? 'OFF' : isLunch ? 'BREAK' : 'Tasks'}
-                    </span>
                   </div>
-                </div>
 
-                {/* 4. Task Description / Work Info (2 cols) */}
-                <div className="lg:col-span-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                    Work Info / Description
-                  </label>
-                  <input
-                    type="text"
-                    disabled={!hasProjects}
-                    placeholder={isLeave ? 'On Leave' : isLunch ? 'Lunch Break' : 'Enter work details...'}
-                    value={entry.notes || ''}
-                    onChange={(e) => handleFieldChange(slot, 'notes', e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-2xl px-3 py-2.5 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none hover:border-slate-300 transition-all shadow-xs disabled:bg-slate-100 disabled:cursor-not-allowed font-medium"
-                  />
-                </div>
+                  {/* Status & Save Button (3 cols - completely separated and non-overlapping) */}
+                  <div className="lg:col-span-3 flex items-end gap-2">
+                    <div className="flex-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                        Status
+                      </label>
+                      <select
+                        value={entry.status || 'Completed'}
+                        disabled={!hasProjects}
+                        onChange={(e) => {
+                          const newStatus = e.target.value;
+                          if (newStatus === 'On Leave') {
+                            handleMarkEntireDayOnLeave();
+                          } else {
+                            handleFieldChange(slot, 'status', newStatus);
+                            if (newStatus === 'Lunch Break' || newStatus === 'Dinner Break') {
+                              handleFieldChange(slot, 'notes', activeShift === 'night' ? 'Dinner Break' : 'Lunch Break');
+                              handleFieldChange(slot, 'taskCount', 0);
+                            }
+                          }
+                        }}
+                        className={`w-full border text-[11px] font-bold rounded-2xl px-2.5 py-2.5 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none cursor-pointer shadow-xs disabled:bg-slate-100 disabled:cursor-not-allowed ${
+                          isLeave
+                            ? 'bg-rose-50 text-rose-700 border-rose-300 font-black'
+                            : isMealBreak
+                            ? 'bg-amber-50 text-amber-800 border-amber-300'
+                            : 'bg-slate-50 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        <option value="Completed">✓ Done</option>
+                        <option value="In Progress">⏳ Progress</option>
+                        <option value="Blocked">⚠️ Blocked</option>
+                        <option value={activeShift === 'night' ? 'Dinner Break' : 'Lunch Break'}>{mealBreakLabel}</option>
+                        <option value="On Leave">🏖️ Leave (All Day)</option>
+                      </select>
+                    </div>
 
-                {/* 5. Status & Save Action (2 cols) */}
-                <div className="lg:col-span-2 flex items-center justify-end gap-1.5 pt-4 lg:pt-0">
-                  {/* Status Dropdown */}
-                  <select
-                    value={entry.status || 'Completed'}
-                    disabled={!hasProjects}
-                    onChange={(e) => {
-                      const newStatus = e.target.value;
-                      if (newStatus === 'On Leave') {
-                        handleMarkEntireDayOnLeave();
-                      } else {
-                        handleFieldChange(slot, 'status', newStatus);
-                        if (newStatus === 'Lunch Break') {
-                          handleFieldChange(slot, 'notes', 'Lunch Break');
-                          handleFieldChange(slot, 'taskCount', 0);
-                        }
-                      }
-                    }}
-                    className={`border text-[11px] font-bold rounded-2xl px-2.5 py-2.5 focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none cursor-pointer shadow-xs disabled:bg-slate-100 disabled:cursor-not-allowed ${
-                      isLeave
-                        ? 'bg-rose-50 text-rose-700 border-rose-300 font-black'
-                        : isLunch
-                        ? 'bg-amber-50 text-amber-800 border-amber-300'
-                        : 'bg-slate-50 text-slate-700 border-slate-200'
-                    }`}
-                  >
-                    <option value="Completed">✓ Done</option>
-                    <option value="In Progress">⏳ Progress</option>
-                    <option value="Blocked">⚠️ Blocked</option>
-                    <option value="Lunch Break">🍱 Lunch</option>
-                    <option value="On Leave">🏖️ Leave (All Day)</option>
-                  </select>
+                    {/* Save Button */}
+                    <div className="shrink-0 flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleSave(slot)}
+                        disabled={isSaving || !hasProjects}
+                        className={`flex items-center gap-1 px-3.5 py-2.5 rounded-2xl text-xs font-extrabold transition-all shadow-xs cursor-pointer ${
+                          !hasProjects
+                            ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                            : isDirty
+                            ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/25 ring-2 ring-amber-300 scale-105'
+                            : isSaved
+                            ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                        }`}
+                        title={!hasProjects ? 'Admin must add projects first' : isDirty ? 'Save changes' : isSaved ? 'Saved (click to update)' : 'Save log'}
+                      >
+                        {isSaving ? (
+                          <span className="animate-spin text-xs">⏳</span>
+                        ) : isSaved && !isDirty ? (
+                          <>
+                            <CheckCheck className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Saved</span>
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-3.5 h-3.5" />
+                            <span>{isDirty ? 'Update' : 'Save'}</span>
+                          </>
+                        )}
+                      </button>
 
-                  {/* Save Button */}
-                  <button
-                    type="button"
-                    onClick={() => handleSave(slot)}
-                    disabled={isSaving || !hasProjects}
-                    className={`flex items-center gap-1 px-3.5 py-2.5 rounded-2xl text-xs font-extrabold transition-all shadow-xs cursor-pointer ${
-                      !hasProjects
-                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                        : isDirty
-                        ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/25 ring-2 ring-amber-300 scale-105'
-                        : isSaved
-                        ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
-                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
-                    }`}
-                    title={!hasProjects ? 'Admin must add projects first' : isDirty ? 'Save changes' : isSaved ? 'Saved (click to update)' : 'Save log'}
-                  >
-                    {isSaving ? (
-                      <span className="animate-spin text-xs">⏳</span>
-                    ) : isSaved && !isDirty ? (
-                      <>
-                        <CheckCheck className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Saved</span>
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-3.5 h-3.5" />
-                        <span>{isDirty ? 'Update' : 'Save'}</span>
-                      </>
-                    )}
-                  </button>
-
-                  {entry.id && (
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(slot)}
-                      className="p-2 text-slate-400 hover:text-rose-600 rounded-2xl hover:bg-rose-50 transition-colors cursor-pointer"
-                      title="Delete log"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+                      {entry.id && (
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(slot)}
+                          className="p-2 text-slate-400 hover:text-rose-600 rounded-2xl hover:bg-rose-50 transition-colors cursor-pointer"
+                          title="Delete log"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

@@ -61,11 +61,17 @@ export function getLeadLogCellData(log) {
     };
   }
 
-  if (statusLower === 'lunch break' || statusLower === 'lunch' || notesLower === 'lunch' || notesLower === 'lunch break') {
+  // 2. Check Lunch or Dinner
+  if (
+    statusLower === 'lunch break' || statusLower === 'lunch' || notesLower === 'lunch' || notesLower === 'lunch break' ||
+    statusLower === 'dinner break' || statusLower === 'dinner' || notesLower === 'dinner' || notesLower === 'dinner break'
+  ) {
+    const isDinner = statusLower.includes('dinner') || notesLower.includes('dinner');
     return {
       type: 'lunch',
-      label: 'Lunch',
-      notes: notesLower === 'lunch' || notesLower === 'lunch break' ? '' : notes
+      isDinner,
+      label: isDinner ? 'Dinner' : 'Lunch',
+      notes: (notesLower === 'lunch' || notesLower === 'lunch break' || notesLower === 'dinner' || notesLower === 'dinner break') ? '' : notes
     };
   }
 
@@ -159,10 +165,11 @@ export const LeadPortal = ({
   };
 
   const isNightShift = activeShift === 'night';
+  const isCoordinator = (currentUser?.role || '').toLowerCase().includes('coordinator');
 
   return (
     <div className="space-y-6">
-      {/* Top Banner Card for Team Lead */}
+      {/* Top Banner Card for Team Lead / Coordinator */}
       <div className={`rounded-3xl p-6 text-white shadow-xl transition-all ${
         isNightShift
           ? 'bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/30'
@@ -172,17 +179,17 @@ export const LeadPortal = ({
           <div className="space-y-2">
             <div className="flex items-center gap-2.5 flex-wrap">
               <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-amber-300 shadow-inner">
-                <Crown className="w-5 h-5" />
+                {isCoordinator ? <Sparkles className="w-5 h-5" /> : <Crown className="w-5 h-5" />}
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-black tracking-tight">{currentUser.name} — Team Lead Portal</h1>
+                  <h1 className="text-xl font-black tracking-tight">{currentUser.name} — {isCoordinator ? 'Team Coordinator Portal' : 'Team Lead Portal'}</h1>
                   <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-300/30 font-mono flex items-center gap-1">
                     <Lock className="w-3 h-3" /> View-Only Access
                   </span>
                 </div>
                 <p className="text-xs text-white/80">
-                  Assigned Team Workforce Intelligence &amp; Project Progress Tracking ({leadData.teamMembers.length} Teammates)
+                  {isCoordinator ? 'Supervised Team Workforce Intelligence & Project Tracking' : 'Assigned Team Workforce Intelligence & Project Progress Tracking'} ({leadData.teamMembers.length} Teammates)
                 </p>
               </div>
             </div>
@@ -324,7 +331,7 @@ export const LeadPortal = ({
             <span className="w-2.5 h-2.5 rounded bg-rose-500"></span> Leave (Red)
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded bg-amber-400"></span> Lunch Break
+            <span className="w-2.5 h-2.5 rounded bg-amber-400"></span> {isNightShift ? 'Dinner Break' : 'Lunch Break'}
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded bg-emerald-500"></span> Completed Tasks
@@ -434,7 +441,7 @@ export const LeadPortal = ({
                             ) : cellData.type === 'lunch' ? (
                               <div className="flex flex-col items-center justify-center gap-1 w-full">
                                 <span className="text-[11px] font-black text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-md border border-amber-300 flex items-center gap-1">
-                                  🍱 Lunch
+                                  {cellData.isDinner || isNightShift ? '🍽️ Dinner' : '🍱 Lunch'}
                                 </span>
                                 {cellData.notes ? (
                                   <p className="text-[10px] font-medium text-amber-950 bg-white/95 px-2 py-1 rounded-md border border-amber-200 text-left whitespace-normal break-words w-full leading-tight shadow-2xs">

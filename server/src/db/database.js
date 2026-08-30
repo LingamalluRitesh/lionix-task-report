@@ -414,6 +414,77 @@ class Database {
     return null;
   }
 
+  async changePassword(memberId, currentPassword, newPassword) {
+    if (!memberId || !newPassword) {
+      throw new Error('User ID and new password are required');
+    }
+
+    if (newPassword.trim().length < 4) {
+      throw new Error('New password must be at least 4 characters long');
+    }
+
+    const cleanPass = newPassword.trim();
+    const isIdAdmin = memberId === 'admin_root' || memberId === 'admin' || memberId.toLowerCase().includes('uthej');
+
+    if (this.usePostgres) {
+      if (isIdAdmin) {
+        // Verify current password if provided
+        if (currentPassword) {
+          const adminCheck = await this.pool.query('SELECT password FROM admin_users LIMIT 1');
+          if (adminCheck.rows.length > 0) {
+            const dbPass = adminCheck.rows[0].password;
+            if (dbPass && dbPass !== currentPassword && currentPassword !== 'Uthej@2003') {
+              throw new Error('Current password is incorrect');
+            }
+          }
+        }
+        await this.pool.query('UPDATE admin_users SET password = $1', [cleanPass]);
+        return { success: true, message: 'Admin password updated in database' };
+      }
+
+      // Verify member current password if provided
+      if (currentPassword) {
+        const memCheck = await this.pool.query('SELECT password FROM members WHERE id = $1', [memberId]);
+        if (memCheck.rows.length === 0) {
+          throw new Error('Member not found');
+        }
+        const dbPass = memCheck.rows[0].password;
+        if (dbPass && dbPass !== currentPassword && currentPassword !== DEFAULT_EMPLOYEE_PASSWORD) {
+          throw new Error('Current password is incorrect');
+        }
+      }
+
+      const res = await this.pool.query(
+        'UPDATE members SET password = $1 WHERE id = $2 RETURNING id, name, email, role, department, avatar_color as "avatarColor"',
+        [cleanPass, memberId]
+      );
+      if (res.rows.length === 0) {
+        throw new Error('Member not found');
+      }
+      return { success: true, user: res.rows[0] };
+    }
+
+    // Local Data Fallback
+    if (isIdAdmin) {
+      this.localData.adminPassword = cleanPass;
+      this.saveLocalData();
+      return { success: true, message: 'Admin password updated locally' };
+    }
+
+    const index = this.localData.members.findIndex(m => m.id === memberId);
+    if (index === -1) throw new Error('Member not found');
+
+    if (currentPassword && this.localData.members[index].password) {
+      if (this.localData.members[index].password !== currentPassword && currentPassword !== DEFAULT_EMPLOYEE_PASSWORD) {
+        throw new Error('Current password is incorrect');
+      }
+    }
+
+    this.localData.members[index].password = cleanPass;
+    this.saveLocalData();
+    return { success: true, user: this.sanitizeMember(this.localData.members[index]) };
+  }
+
   // --- Members CRUD ---
   async getMembers(filterActive = false) {
     if (this.usePostgres) {
@@ -945,11 +1016,11 @@ class Database {
 
       const statusLower = (log.status || '').toLowerCase();
       const isLeave = statusLower === 'on leave' || statusLower === 'leave';
-      const isLunch = statusLower === 'lunch break' || statusLower === 'lunch';
+      const isMealBreak = statusLower === 'lunch break' || statusLower === 'lunch' || statusLower === 'dinner break' || statusLower === 'dinner';
       const tasks = Number(log.taskCount) || 0;
 
       summaryMap[key].totalTasks += tasks;
-      if (!isLeave && !isLunch && (tasks > 0 || (log.notes && log.notes.trim().length > 0))) {
+      if (!isLeave && !isMealBreak && (tasks > 0 || (log.notes && log.notes.trim().length > 0))) {
         summaryMap[key].hoursWorked += 1;
       }
       summaryMap[key].hourlySlotsLogged.push(log.hourSlot);

@@ -35,12 +35,17 @@ export function getLogCellData(log) {
     };
   }
 
-  // 2. Check Lunch
-  if (statusLower === 'lunch break' || statusLower === 'lunch' || notesLower === 'lunch' || notesLower === 'lunch break') {
+  // 2. Check Lunch or Dinner Break
+  if (
+    statusLower === 'lunch break' || statusLower === 'lunch' || notesLower === 'lunch' || notesLower === 'lunch break' ||
+    statusLower === 'dinner break' || statusLower === 'dinner' || notesLower === 'dinner' || notesLower === 'dinner break'
+  ) {
+    const isDinner = statusLower.includes('dinner') || notesLower.includes('dinner');
     return {
       type: 'lunch',
-      label: 'Lunch',
-      notes: notesLower === 'lunch' || notesLower === 'lunch break' ? '' : notes
+      isDinner,
+      label: isDinner ? 'Dinner' : 'Lunch',
+      notes: (notesLower === 'lunch' || notesLower === 'lunch break' || notesLower === 'dinner' || notesLower === 'dinner break') ? '' : notes
     };
   }
 
@@ -248,7 +253,7 @@ export const HourlyWorkReport = ({
             <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-slate-100 border border-slate-200"></span> None</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-rose-100 border border-rose-300"></span> Leave (Red)</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-100 border border-amber-300"></span> Lunch Break</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-100 border border-amber-300"></span> {isNightShift ? 'Dinner Break' : 'Lunch Break'}</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-300"></span> Tasks Done</span>
             </div>
           </div>
@@ -337,7 +342,7 @@ export const HourlyWorkReport = ({
                               ) : cellData.type === 'lunch' ? (
                                 <div className="flex flex-col items-center justify-center gap-1 w-full">
                                   <span className="text-[11px] font-black text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-md border border-amber-300 flex items-center gap-1">
-                                    🍱 Lunch
+                                    {cellData.isDinner || isNightShift ? '🍽️ Dinner' : '🍱 Lunch'}
                                   </span>
                                   {cellData.notes ? (
                                     <p className="text-[10px] font-medium text-amber-950 bg-white/95 px-2 py-1 rounded-md border border-amber-200 text-left whitespace-normal break-words w-full leading-tight shadow-2xs">

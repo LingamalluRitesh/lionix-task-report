@@ -21,7 +21,8 @@ import {
   Users, 
   FolderKanban, 
   Flame,
-  Crown
+  Crown,
+  Sparkles
 } from 'lucide-react';
 
 const MainApp = () => {
@@ -48,7 +49,8 @@ const MainApp = () => {
   );
 
   // Team Lead / Coordinator Recognition
-  const isLead = Boolean(!isAdmin && currentUser?.isLead);
+  const isCoordinator = (currentUser?.role || '').toLowerCase().includes('coordinator');
+  const isLead = Boolean(!isAdmin && (currentUser?.isLead || (currentUser?.role || '').toLowerCase().includes('lead') || isCoordinator));
 
   // Active Tabs
   const [currentAdminTab, setCurrentAdminTab] = useState('overview'); // 'overview' | 'hourly' | 'daily' | 'members' | 'projects'
@@ -535,7 +537,7 @@ const MainApp = () => {
         ) : isLead && leadTab === 'team-progress' ? (
           /* TEAM LEAD / COORDINATOR VIEW-ONLY PORTAL */
           <div className="space-y-6">
-            {/* Mobile Tab Switcher for Lead */}
+            {/* Mobile Tab Switcher for Lead / Coordinator */}
             <div className="flex sm:hidden items-center gap-1.5 p-1 bg-white border border-slate-200 rounded-2xl shadow-xs">
               <button
                 onClick={() => setLeadTab('team-progress')}
@@ -545,8 +547,8 @@ const MainApp = () => {
                     : 'text-slate-600'
                 }`}
               >
-                <Crown className="w-3.5 h-3.5" />
-                <span>Team Progress</span>
+                {isCoordinator ? <Sparkles className="w-3.5 h-3.5" /> : <Crown className="w-3.5 h-3.5" />}
+                <span>{isCoordinator ? 'Team Progress' : 'Team Progress'}</span>
               </button>
               <button
                 onClick={() => setLeadTab('my-tasks')}
@@ -586,8 +588,8 @@ const MainApp = () => {
                       : 'text-slate-600'
                   }`}
                 >
-                  <Crown className="w-3.5 h-3.5" />
-                  <span>Team Progress</span>
+                  {isCoordinator ? <Sparkles className="w-3.5 h-3.5" /> : <Crown className="w-3.5 h-3.5" />}
+                  <span>{isCoordinator ? 'Team Progress' : 'Team Progress'}</span>
                 </button>
                 <button
                   onClick={() => setLeadTab('my-tasks')}

@@ -20,6 +20,15 @@ export const api = {
     return res.json();
   },
 
+  async changePassword(memberId, currentPassword, newPassword) {
+    const res = await fetch(`${API_BASE}/auth/change-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ memberId, currentPassword, newPassword })
+    });
+    return res.json();
+  },
+
   async resetData() {
     const res = await fetch(`${API_BASE}/auth/reset`, {
       method: 'POST'
