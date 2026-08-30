@@ -371,7 +371,7 @@ export const LeadPortal = ({
                 matrixData.matrix.map((row) => (
                   <tr key={row.member.id} className="hover:bg-slate-50/70 transition-colors">
                     {/* Member Info & Project Assignment */}
-                    <td className="py-3.5 px-3 sticky left-0 bg-white/95 z-10 border-r border-slate-100">
+                    <td className="py-3.5 px-3.5 sticky left-0 bg-white/95 z-10 border-r border-slate-200/80">
                       <div className="flex items-start gap-2.5">
                         <div
                           className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-xs mt-0.5"
@@ -495,7 +495,7 @@ export const LeadPortal = ({
                       });
 
                       return (
-                        <td className="py-3.5 px-3 text-right sticky right-0 bg-white/95 z-10 border-l border-slate-100">
+                        <td className="py-3.5 px-3.5 text-right sticky right-0 bg-white/95 z-10 border-l border-slate-200/80">
                           {isAllLeave ? (
                             <div className="flex flex-col items-end justify-center gap-0.5">
                               <span className="inline-flex items-center gap-1 font-sans text-[11px] font-black text-rose-700 bg-rose-100 border border-rose-300 px-2 py-0.5 rounded-md uppercase tracking-tight shadow-2xs">

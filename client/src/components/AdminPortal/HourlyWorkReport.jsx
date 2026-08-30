@@ -253,17 +253,22 @@ export const HourlyWorkReport = ({
             </div>
           </div>
 
-          <div className="overflow-x-auto pb-4">
-            <table className="w-full text-left border-collapse min-w-[1300px]">
+          <div className="overflow-x-auto pb-4 rounded-2xl">
+            <table className="w-full text-left border-collapse min-w-[1280px]">
               <thead>
-                <tr className="border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  <th className="py-3 px-3 sticky left-0 bg-white z-10 w-56 shadow-r">Team Member</th>
+                <tr className="border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500 bg-slate-50/80">
+                  <th className="py-3 px-3.5 sticky left-0 bg-slate-50 z-20 w-52 border-r border-slate-200">
+                    Team Member
+                  </th>
                   {allHours.map(hour => (
-                    <th key={hour} className="py-3 px-2 text-center font-mono whitespace-nowrap min-w-[145px]">
-                      {hour.split(' - ')[0]}
+                    <th key={hour} className="py-3 px-2 text-center font-mono whitespace-nowrap min-w-[130px] border-r border-slate-100 last:border-r-0">
+                      <span className="block text-slate-800 text-[11px] font-extrabold">{hour.split(' - ')[0]}</span>
+                      <span className="block text-slate-400 text-[9px] font-sans font-normal">{hour.split(' - ')[1]}</span>
                     </th>
                   ))}
-                  <th className="py-3 px-3 text-right font-mono sticky right-0 bg-white z-10 w-28">Total Tasks</th>
+                  <th className="py-3 px-3.5 text-right font-mono sticky right-0 bg-slate-50 z-20 w-28 border-l border-slate-200">
+                    Total Tasks
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
@@ -271,7 +276,7 @@ export const HourlyWorkReport = ({
                   matrix.map((row) => (
                     <tr key={row.member.id} className="hover:bg-slate-50/70 transition-colors">
                       {/* Member Column */}
-                      <td className="py-3.5 px-3 sticky left-0 bg-white/95 z-10 border-r border-slate-100">
+                      <td className="py-3.5 px-3.5 sticky left-0 bg-white/95 z-10 border-r border-slate-200/80">
                         <div className="flex items-center gap-2.5">
                           <div
                             className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-xs"
@@ -397,7 +402,7 @@ export const HourlyWorkReport = ({
                         });
 
                         return (
-                          <td className="py-3.5 px-3 text-right sticky right-0 bg-white/95 z-10 border-l border-slate-100">
+                          <td className="py-3.5 px-3.5 text-right sticky right-0 bg-white/95 z-10 border-l border-slate-200/80">
                             {isAllLeave ? (
                               <div className="flex flex-col items-end justify-center gap-0.5">
                                 <span className="inline-flex items-center gap-1 font-sans text-[11px] font-black text-rose-700 bg-rose-100 border border-rose-300 px-2 py-0.5 rounded-md uppercase tracking-tight shadow-2xs">
