@@ -766,13 +766,13 @@ class Database {
         }
       }
 
-      // 3. Member profile default shift
+      // 3. Member profile default shift if specified
       if (member.shift) {
         return member.shift === requestedShift;
       }
 
-      // 4. Default: all members without explicit night shift belong to morning shift
-      return requestedShift === 'morning';
+      // 4. Default: member has not chosen or logged in a specific shift yet, so show them in current shift
+      return true;
     });
   }
 
