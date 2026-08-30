@@ -40,18 +40,14 @@ export const UnifiedAuth = ({ onLoginSuccess }) => {
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
       <div className="max-w-md w-full">
         {/* Brand Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-500 via-orange-500 to-amber-600 shadow-xl shadow-amber-500/25 mb-4 text-white">
-            <Flame className="w-8 h-8 fill-white" />
-          </div>
-          <div className="flex items-center justify-center gap-2">
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-              LionIX
-            </h1>
-            <span className="text-xl font-bold text-amber-600">Task Report</span>
-          </div>
-          <p className="text-xs text-slate-500 mt-1.5 font-medium">
-            Sign in to access your portal (Admin or Employee)
+        <div className="text-center mb-8 flex flex-col items-center">
+          <img
+            src="/logo.png"
+            alt="LionIX"
+            className="h-16 w-auto object-contain drop-shadow-md select-none mb-3"
+          />
+          <p className="text-xs text-slate-500 font-medium">
+            Sign in to access your portal (Admin, Team Lead, or Contributor)
           </p>
         </div>
 

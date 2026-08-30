@@ -39,18 +39,17 @@ export const AdminAuth = ({ onAdminLoginSuccess }) => {
     <div className="min-h-[85vh] flex items-center justify-center px-4 py-12">
       <div className="max-w-md w-full">
         {/* Brand Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-gradient-to-tr from-indigo-600 to-purple-600 shadow-xl shadow-indigo-500/20 mb-4 text-white">
-            <Shield className="w-8 h-8" />
-          </div>
+        <div className="text-center mb-8 flex flex-col items-center">
+          <img
+            src="/logo.png"
+            alt="LionIX"
+            className="h-16 w-auto object-contain drop-shadow-md select-none mb-3"
+          />
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold mb-2">
             <KeyRound className="w-3.5 h-3.5" /> URL-Restricted Admin Portal
           </div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            LionIX Administrator
-          </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Executive gateway for managing projects, team reports, and 9 AM – 6 PM metrics
+            Executive gateway for managing projects, team reports, and shift metrics
           </p>
         </div>
 
