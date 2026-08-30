@@ -127,8 +127,8 @@ export const LeadPortal = ({
     if (!currentUser?.id) return;
     try {
       const [overview, matrix] = await Promise.all([
-        api.getLeadOverview(currentUser.id, { date: selectedDate }),
-        api.getMatrix(selectedDate, currentUser.id)
+        api.getLeadOverview(currentUser.id, { date: selectedDate, shift: activeShift }),
+        api.getMatrix(selectedDate, currentUser.id, activeShift)
       ]);
 
       if (overview) {
@@ -167,6 +167,27 @@ export const LeadPortal = ({
   const isNightShift = activeShift === 'night';
   const isCoordinator = (currentUser?.role || '').toLowerCase().includes('coordinator');
 
+  // Robust calculations with fallback to Matrix data
+  const matrixRows = matrixData.matrix || [];
+  const matrixTotalTasks = matrixRows.reduce((acc, r) => acc + (Number(r.totalTasks) || 0), 0);
+  const matrixHoursWorked = matrixRows.reduce((acc, r) => acc + (Number(r.hoursWorked) || 0), 0);
+
+  const totalTeamTasks = leadData.totalTeamTasks !== undefined && leadData.totalTeamTasks !== null
+    ? Number(leadData.totalTeamTasks)
+    : matrixTotalTasks;
+
+  const teamMemberCount = (leadData.teamMembers && leadData.teamMembers.length > 0)
+    ? leadData.teamMembers.length
+    : matrixRows.length > 0
+    ? matrixRows.length
+    : 15;
+
+  const avgVelocity = leadData.avgTeamTasksPerHour !== undefined && leadData.avgTeamTasksPerHour !== null
+    ? String(leadData.avgTeamTasksPerHour)
+    : matrixHoursWorked > 0
+    ? (totalTeamTasks / matrixHoursWorked).toFixed(1)
+    : '0.0';
+
   return (
     <div className="space-y-6">
       {/* Top Banner Card for Team Lead / Coordinator */}
@@ -189,7 +210,7 @@ export const LeadPortal = ({
                   </span>
                 </div>
                 <p className="text-xs text-white/80">
-                  {isCoordinator ? 'Supervised Team Workforce Intelligence & Project Tracking' : 'Assigned Team Workforce Intelligence & Project Progress Tracking'} ({leadData.teamMembers.length} Teammates)
+                  {isCoordinator ? 'Supervised Team Workforce Intelligence & Project Tracking' : 'Assigned Team Workforce Intelligence & Project Progress Tracking'} ({teamMemberCount} Teammates)
                 </p>
               </div>
             </div>
@@ -271,21 +292,21 @@ export const LeadPortal = ({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard
           title="Team Tasks Completed"
-          value={leadData.totalTeamTasks}
-          subtitle={`By your ${leadData.teamMembers.length} teammates on ${selectedDate}`}
+          value={totalTeamTasks}
+          subtitle={`By your ${teamMemberCount} teammates on ${selectedDate}`}
           icon={CheckCircle2}
           color="emerald"
         />
         <StatCard
           title="Assigned Teammates"
-          value={leadData.teamMembers.length}
+          value={teamMemberCount}
           subtitle="Members assigned to your supervision"
           icon={Users}
           color="sky"
         />
         <StatCard
           title="Avg Team Velocity"
-          value={`${leadData.avgTeamTasksPerHour} / hr`}
+          value={`${avgVelocity} / hr`}
           subtitle="Real-time completed tasks per working hour"
           icon={TrendingUp}
           color="amber"

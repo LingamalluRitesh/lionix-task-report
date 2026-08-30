@@ -98,12 +98,14 @@ router.get('/matrix', async (req, res) => {
     let members = await db.getMembers(true);
     let logs = await db.getHourlyLogs({ date });
 
-    // Filter by lead if requested
+    // Filter by lead if requested and specific teammates are assigned
     if (leadId) {
       const assignedIds = await db.getTeamAssignments(leadId);
-      const relevantIds = Array.from(new Set([leadId, ...assignedIds]));
-      members = members.filter(m => relevantIds.includes(m.id));
-      logs = logs.filter(l => relevantIds.includes(l.memberId));
+      if (assignedIds && assignedIds.length > 0) {
+        const relevantIds = Array.from(new Set([leadId, ...assignedIds]));
+        members = members.filter(m => relevantIds.includes(m.id));
+        logs = logs.filter(l => relevantIds.includes(l.memberId));
+      }
     }
 
     // Collect any extra custom hours logged by employees
@@ -225,8 +227,10 @@ router.get('/daily-summary', async (req, res) => {
 
     if (leadId) {
       const assignedIds = await db.getTeamAssignments(leadId);
-      const relevantIds = Array.from(new Set([leadId, ...assignedIds]));
-      summaries = summaries.filter(s => relevantIds.includes(s.memberId));
+      if (assignedIds && assignedIds.length > 0) {
+        const relevantIds = Array.from(new Set([leadId, ...assignedIds]));
+        summaries = summaries.filter(s => relevantIds.includes(s.memberId));
+      }
     }
 
     res.json({ success: true, count: summaries.length, data: summaries });

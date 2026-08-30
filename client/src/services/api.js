@@ -164,9 +164,12 @@ export const api = {
     return json.data || [];
   },
 
-  async getMatrix(date, leadId = '') {
-    const params = new URLSearchParams({ date });
+  async getMatrix(date, leadId = '', shift = '') {
+    const params = new URLSearchParams();
+    const dateVal = typeof date === 'object' && date !== null ? date.date : date;
+    if (dateVal) params.append('date', dateVal);
     if (leadId) params.append('leadId', leadId);
+    if (shift) params.append('shift', shift);
     const res = await fetch(`${API_BASE}/reports/matrix?${params.toString()}`);
     const json = await res.json();
     return json || { allHours: [], matrix: [] };
@@ -211,9 +214,16 @@ export const api = {
     return json.data || {};
   },
 
-  async getLeadOverview(leadId, date) {
+  async getLeadOverview(leadId, dateOrParams = '') {
     const params = new URLSearchParams({ leadId });
-    if (date) params.append('date', date);
+    if (typeof dateOrParams === 'string' && dateOrParams) {
+      params.append('date', dateOrParams);
+    } else if (typeof dateOrParams === 'object' && dateOrParams !== null) {
+      if (dateOrParams.date) params.append('date', dateOrParams.date);
+      if (dateOrParams.startDate) params.append('startDate', dateOrParams.startDate);
+      if (dateOrParams.endDate) params.append('endDate', dateOrParams.endDate);
+      if (dateOrParams.shift) params.append('shift', dateOrParams.shift);
+    }
     const res = await fetch(`${API_BASE}/reports/lead-overview?${params.toString()}`);
     const json = await res.json();
     return json.data || {};

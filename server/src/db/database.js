@@ -673,18 +673,36 @@ class Database {
   async getLeadOverview(leadId, { date, startDate, endDate } = {}) {
     const targetDate = date || new Date().toISOString().split('T')[0];
     const assignedMemberIds = await this.getTeamAssignments(leadId);
+    const allMembers = await this.getMembers(true);
     
-    // Include the lead themselves + their assigned members
-    const allRelevantIds = Array.from(new Set([leadId, ...assignedMemberIds]));
+    // If specific members are assigned to this lead, use them; otherwise, supervise all active members
+    let teamMembers = [];
+    if (assignedMemberIds && assignedMemberIds.length > 0) {
+      const allRelevantIds = Array.from(new Set([leadId, ...assignedMemberIds]));
+      teamMembers = allMembers.filter(m => allRelevantIds.includes(m.id));
+    } else {
+      teamMembers = allMembers;
+    }
     
-    const allMembers = await this.getMembers();
-    const teamMembers = allMembers.filter(m => allRelevantIds.includes(m.id));
-    
+    const relevantIds = teamMembers.map(m => m.id);
     const logs = await this.getHourlyLogs({ date: targetDate, startDate, endDate });
-    const teamLogs = logs.filter(l => allRelevantIds.includes(l.memberId));
+    const teamLogs = logs.filter(l => relevantIds.includes(l.memberId));
     
     const summaries = await this.getDailySummary({ date: targetDate, startDate, endDate });
-    const teamSummaries = summaries.filter(s => allRelevantIds.includes(s.memberId));
+    const teamSummaries = summaries.filter(s => relevantIds.includes(s.memberId));
+
+    const totalTeamTasks = teamLogs.reduce((acc, l) => acc + (Number(l.taskCount) || 0), 0);
+    
+    const productiveHours = teamLogs.filter(l => {
+      const s = (l.status || '').toLowerCase();
+      return s !== 'on leave' && s !== 'leave' && s !== 'lunch break' && s !== 'lunch' && s !== 'dinner break' && s !== 'dinner' && (Number(l.taskCount) > 0 || (l.notes && l.notes.trim().length > 0));
+    }).length;
+
+    const avgTeamTasksPerHour = productiveHours > 0 
+      ? (totalTeamTasks / productiveHours).toFixed(1) 
+      : teamLogs.length > 0 
+      ? (totalTeamTasks / teamLogs.length).toFixed(1) 
+      : '0.0';
 
     return {
       date: targetDate,
@@ -692,9 +710,10 @@ class Database {
       teamMembers,
       teamLogs,
       teamSummaries,
-      totalTeamTasks: teamLogs.reduce((acc, l) => acc + (Number(l.taskCount) || 0), 0),
+      totalTeamTasks,
       totalTeamHours: teamLogs.length,
-      assignedCount: assignedMemberIds.length
+      avgTeamTasksPerHour,
+      assignedCount: assignedMemberIds && assignedMemberIds.length > 0 ? assignedMemberIds.length : teamMembers.length
     };
   }
 
