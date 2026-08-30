@@ -943,8 +943,15 @@ class Database {
         };
       }
 
-      summaryMap[key].totalTasks += Number(log.taskCount) || 0;
-      summaryMap[key].hoursWorked += 1;
+      const statusLower = (log.status || '').toLowerCase();
+      const isLeave = statusLower === 'on leave' || statusLower === 'leave';
+      const isLunch = statusLower === 'lunch break' || statusLower === 'lunch';
+      const tasks = Number(log.taskCount) || 0;
+
+      summaryMap[key].totalTasks += tasks;
+      if (!isLeave && !isLunch && (tasks > 0 || (log.notes && log.notes.trim().length > 0))) {
+        summaryMap[key].hoursWorked += 1;
+      }
       summaryMap[key].hourlySlotsLogged.push(log.hourSlot);
       summaryMap[key].logs.push(log);
 
@@ -956,7 +963,7 @@ class Database {
           projectId: log.projectId
         };
       }
-      summaryMap[key].projectBreakdown[projName].tasks += Number(log.taskCount) || 0;
+      summaryMap[key].projectBreakdown[projName].tasks += tasks;
     });
 
     const summaries = Object.values(summaryMap).map(item => ({

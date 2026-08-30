@@ -388,12 +388,38 @@ export const HourlyWorkReport = ({
                       })}
 
                       {/* Total Tasks Column */}
-                      <td className="py-3.5 px-3 text-right font-mono font-extrabold text-amber-600 sticky right-0 bg-white/95 z-10 border-l border-slate-100 text-sm">
-                        {row.totalTasks}
-                        <span className="text-[10px] text-slate-400 block font-normal font-sans">
-                          {row.hoursWorked} hrs
-                        </span>
-                      </td>
+                      {(() => {
+                        const loggedHourValues = Object.values(row.hours).filter(Boolean);
+                        const isAllLeave = loggedHourValues.length > 0 && loggedHourValues.every(l => {
+                          const statusLower = (l.status || '').toLowerCase();
+                          const notesLower = (l.notes || '').toLowerCase();
+                          return statusLower === 'on leave' || statusLower === 'leave' || notesLower === 'on leave' || notesLower === 'leave';
+                        });
+
+                        return (
+                          <td className="py-3.5 px-3 text-right sticky right-0 bg-white/95 z-10 border-l border-slate-100">
+                            {isAllLeave ? (
+                              <div className="flex flex-col items-end justify-center gap-0.5">
+                                <span className="inline-flex items-center gap-1 font-sans text-[11px] font-black text-rose-700 bg-rose-100 border border-rose-300 px-2 py-0.5 rounded-md uppercase tracking-tight shadow-2xs">
+                                  🏖️ Leave
+                                </span>
+                                <span className="text-[10px] text-rose-500 font-bold font-mono">
+                                  0 tasks
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-end justify-center">
+                                <span className="font-mono font-black text-amber-600 text-sm block">
+                                  {row.totalTasks}
+                                </span>
+                                <span className="text-[10px] text-slate-400 block font-normal font-sans">
+                                  {row.hoursWorked} hrs
+                                </span>
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })()}
                     </tr>
                   ))
                 ) : (

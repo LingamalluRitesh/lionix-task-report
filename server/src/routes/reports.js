@@ -127,8 +127,15 @@ router.get('/matrix', async (req, res) => {
         const log = memberLogs.find(l => l.hourSlot === hour);
         if (log) {
           hourMap[hour] = log;
-          totalTasks += Number(log.taskCount) || 0;
-          hoursWorked += 1;
+          const statusLower = (log.status || '').toLowerCase();
+          const isLeave = statusLower === 'on leave' || statusLower === 'leave';
+          const isLunch = statusLower === 'lunch break' || statusLower === 'lunch';
+          const tasks = Number(log.taskCount) || 0;
+
+          totalTasks += tasks;
+          if (!isLeave && !isLunch && (tasks > 0 || (log.notes && log.notes.trim().length > 0))) {
+            hoursWorked += 1;
+          }
         } else {
           hourMap[hour] = null;
         }
