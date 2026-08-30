@@ -151,6 +151,16 @@ class Database {
         assigned_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (lead_id, member_id)
       );
+
+      CREATE TABLE IF NOT EXISTS member_shifts (
+        member_id VARCHAR(255) NOT NULL,
+        date VARCHAR(50) NOT NULL,
+        shift VARCHAR(50) NOT NULL DEFAULT 'morning',
+        updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (member_id, date)
+      );
+
+      ALTER TABLE members ADD COLUMN IF NOT EXISTS shift VARCHAR(50) DEFAULT 'morning';
     `;
     await this.pool.query(schemaSql);
   }
@@ -670,25 +680,122 @@ class Database {
     return cleanIds;
   }
 
-  async getLeadOverview(leadId, { date, startDate, endDate } = {}) {
+  // --- Member Shifts (Morning vs Night per Date) ---
+  async setMemberShift(memberId, date, shift = 'morning') {
+    const cleanShift = shift === 'night' ? 'night' : 'morning';
     const targetDate = date || new Date().toISOString().split('T')[0];
-    const assignedMemberIds = await this.getTeamAssignments(leadId);
+
+    if (this.usePostgres) {
+      await this.pool.query(`
+        INSERT INTO member_shifts (member_id, date, shift, updated_at)
+        VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+        ON CONFLICT (member_id, date) DO UPDATE SET
+          shift = EXCLUDED.shift,
+          updated_at = CURRENT_TIMESTAMP
+      `, [memberId, targetDate, cleanShift]);
+
+      return { memberId, date: targetDate, shift: cleanShift };
+    }
+
+    if (!this.localData.memberShifts) this.localData.memberShifts = {};
+    const key = `${targetDate}_${memberId}`;
+    this.localData.memberShifts[key] = cleanShift;
+    this.saveLocalData();
+    return { memberId, date: targetDate, shift: cleanShift };
+  }
+
+  async getMemberShiftsForDate(date) {
+    const targetDate = date || new Date().toISOString().split('T')[0];
+    if (this.usePostgres) {
+      const res = await this.pool.query('SELECT member_id, shift FROM member_shifts WHERE date = $1', [targetDate]);
+      const map = {};
+      res.rows.forEach(r => { map[r.member_id] = r.shift; });
+      return map;
+    }
+
+    const map = {};
+    if (this.localData.memberShifts) {
+      Object.entries(this.localData.memberShifts).forEach(([key, shift]) => {
+        if (key.startsWith(`${targetDate}_`)) {
+          const mId = key.replace(`${targetDate}_`, '');
+          map[mId] = shift;
+        }
+      });
+    }
+    return map;
+  }
+
+  async getActiveMembersForShift(date, requestedShift = 'morning') {
     const allMembers = await this.getMembers(true);
+    const targetDate = date || new Date().toISOString().split('T')[0];
+    const shiftsMap = await this.getMemberShiftsForDate(targetDate);
+    const logs = await this.getHourlyLogs({ date: targetDate });
+
+    const MORNING_HOURS = [
+      '09:00 AM - 10:00 AM', '10:00 AM - 11:00 AM', '11:00 AM - 12:00 PM',
+      '12:00 PM - 01:00 PM', '01:00 PM - 02:00 PM', '02:00 PM - 03:00 PM',
+      '03:00 PM - 04:00 PM', '04:00 PM - 05:00 PM', '05:00 PM - 06:00 PM'
+    ];
+
+    const NIGHT_HOURS = [
+      '08:00 PM - 09:00 PM', '09:00 PM - 10:00 PM', '10:00 PM - 11:00 PM',
+      '11:00 PM - 12:00 AM', '12:00 AM - 01:00 AM', '01:00 AM - 02:00 AM',
+      '02:00 AM - 03:00 AM', '03:00 AM - 04:00 AM', '04:00 AM - 05:00 AM'
+    ];
+
+    return allMembers.filter(member => {
+      // 1. Check explicit shift record for this date
+      if (shiftsMap[member.id]) {
+        return shiftsMap[member.id] === requestedShift;
+      }
+
+      // 2. Check if member logged in shift hours on this date
+      const memberLogs = logs.filter(l => l.memberId === member.id);
+      if (memberLogs.length > 0) {
+        const hasNightLogs = memberLogs.some(l => NIGHT_HOURS.includes(l.hourSlot));
+        const hasMorningLogs = memberLogs.some(l => MORNING_HOURS.includes(l.hourSlot));
+
+        if (hasNightLogs && !hasMorningLogs) {
+          return requestedShift === 'night';
+        }
+        if (hasMorningLogs && !hasNightLogs) {
+          return requestedShift === 'morning';
+        }
+        if (hasNightLogs && hasMorningLogs) {
+          return true; // Logged in both
+        }
+      }
+
+      // 3. Member profile default shift
+      if (member.shift) {
+        return member.shift === requestedShift;
+      }
+
+      // 4. Default: all members without explicit night shift belong to morning shift
+      return requestedShift === 'morning';
+    });
+  }
+
+  async getLeadOverview(leadId, { date, startDate, endDate, shift } = {}) {
+    const targetDate = date || new Date().toISOString().split('T')[0];
+    const activeShift = shift || 'morning';
+    const assignedMemberIds = await this.getTeamAssignments(leadId);
+    const shiftMembers = await this.getActiveMembersForShift(targetDate, activeShift);
     
-    // If specific members are assigned to this lead, use them; otherwise, supervise all active members
+    // If specific members are assigned to this lead, use them; otherwise, supervise all shift members
     let teamMembers = [];
     if (assignedMemberIds && assignedMemberIds.length > 0) {
       const allRelevantIds = Array.from(new Set([leadId, ...assignedMemberIds]));
-      teamMembers = allMembers.filter(m => allRelevantIds.includes(m.id));
+      teamMembers = shiftMembers.filter(m => allRelevantIds.includes(m.id));
     } else {
-      teamMembers = allMembers;
+      teamMembers = shiftMembers;
     }
     
     const relevantIds = teamMembers.map(m => m.id);
     const logs = await this.getHourlyLogs({ date: targetDate, startDate, endDate });
     const teamLogs = logs.filter(l => relevantIds.includes(l.memberId));
     
-    const summaries = await this.getDailySummary({ date: targetDate, startDate, endDate });
+    const summaries = await this.getDailySummary({ date: targetDate, startDate, endDate, shift: activeShift });
     const teamSummaries = summaries.filter(s => relevantIds.includes(s.memberId));
 
     const totalTeamTasks = teamLogs.reduce((acc, l) => acc + (Number(l.taskCount) || 0), 0);
@@ -707,6 +814,7 @@ class Database {
     return {
       date: targetDate,
       leadId,
+      shift: activeShift,
       teamMembers,
       teamLogs,
       teamSummaries,
@@ -1008,13 +1116,20 @@ class Database {
   }
 
   // --- Aggregations & Reports ---
-  async getDailySummary({ date, startDate, endDate, memberId }) {
-    const logs = await this.getHourlyLogs({ date, startDate, endDate, memberId });
-    const members = await this.getMembers();
+  async getDailySummary({ date, startDate, endDate, memberId, shift }) {
+    const targetDate = date || new Date().toISOString().split('T')[0];
+    const logs = await this.getHourlyLogs({ date: targetDate, startDate, endDate, memberId });
+    
+    let members = await this.getMembers();
+    if (shift) {
+      members = await this.getActiveMembersForShift(targetDate, shift);
+    }
+    const memberIdSet = new Set(members.map(m => m.id));
+    const filteredLogs = logs.filter(l => memberIdSet.has(l.memberId));
 
     const summaryMap = {};
 
-    logs.forEach(log => {
+    filteredLogs.forEach(log => {
       const key = `${log.date}_${log.memberId}`;
       if (!summaryMap[key]) {
         const member = members.find(m => m.id === log.memberId) || { name: log.memberName || 'Team Member', role: 'Python Developer', department: 'IT', avatarColor: '#0284c7' };

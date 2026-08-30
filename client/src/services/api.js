@@ -93,6 +93,15 @@ export const api = {
     return res.json();
   },
 
+  async setMemberShift(memberId, date, shift) {
+    const res = await fetch(`${API_BASE}/members/${memberId}/shift`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date, shift })
+    });
+    return res.json();
+  },
+
   // Team Assignments for Leads & Coordinators
   async getTeamAssignments() {
     const res = await fetch(`${API_BASE}/members/assignments`);

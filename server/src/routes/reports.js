@@ -67,6 +67,7 @@ router.post('/member-leave', async (req, res) => {
     const hours = getHoursForShift(activeShift);
 
     await db.markMemberDayOnLeave(memberId, date, hours);
+    await db.setMemberShift(memberId, date, activeShift);
     res.json({ success: true, message: `Member marked On Leave for all day on ${date}` });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -95,7 +96,8 @@ router.get('/matrix', async (req, res) => {
     const activeShift = requestedShift || settings.currentShift || 'morning';
     const standardHours = getHoursForShift(activeShift);
 
-    let members = await db.getMembers(true);
+    // Filter members to only those belonging to the selected shift
+    let members = await db.getActiveMembersForShift(date, activeShift);
     let logs = await db.getHourlyLogs({ date });
 
     // Filter by lead if requested and specific teammates are assigned
@@ -187,6 +189,10 @@ router.post('/hourly', async (req, res) => {
       status
     });
 
+    // Auto-record member's shift for this date
+    const isNightSlot = NIGHT_HOURS.includes(hourSlot);
+    await db.setMemberShift(memberId, date, isNightSlot ? 'night' : 'morning');
+
     res.status(201).json({ success: true, data: log });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -222,8 +228,8 @@ router.delete('/hourly/:id', async (req, res) => {
 // GET daily summary aggregated report
 router.get('/daily-summary', async (req, res) => {
   try {
-    const { date, startDate, endDate, memberId, leadId } = req.query;
-    let summaries = await db.getDailySummary({ date, startDate, endDate, memberId });
+    const { date, startDate, endDate, memberId, leadId, shift } = req.query;
+    let summaries = await db.getDailySummary({ date, startDate, endDate, memberId, shift });
 
     if (leadId) {
       const assignedIds = await db.getTeamAssignments(leadId);
@@ -242,11 +248,11 @@ router.get('/daily-summary', async (req, res) => {
 // GET lead overview (Work progress for assigned teammates)
 router.get('/lead-overview', async (req, res) => {
   try {
-    const { leadId, date, startDate, endDate } = req.query;
+    const { leadId, date, startDate, endDate, shift } = req.query;
     if (!leadId) {
       return res.status(400).json({ success: false, error: 'leadId is required' });
     }
-    const overview = await db.getLeadOverview(leadId, { date, startDate, endDate });
+    const overview = await db.getLeadOverview(leadId, { date, startDate, endDate, shift });
     res.json({ success: true, data: overview });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -275,18 +281,20 @@ router.get('/export-excel', async (req, res) => {
     const standardHours = getHoursForShift(activeShift);
 
     let [summaries, members, logs] = await Promise.all([
-      db.getDailySummary({ date: targetDate, startDate, endDate }),
-      db.getMembers(true),
+      db.getDailySummary({ date: targetDate, startDate, endDate, shift: activeShift }),
+      db.getActiveMembersForShift(targetDate, activeShift),
       db.getHourlyLogs({ date: targetDate, startDate, endDate })
     ]);
 
-    // If Team Lead / Coordinator is exporting, filter strictly to their assigned team
+    // If Team Lead / Coordinator is exporting, filter to their assigned team
     if (leadId) {
       const assignedIds = await db.getTeamAssignments(leadId);
-      const relevantIds = Array.from(new Set([leadId, ...assignedIds]));
-      summaries = summaries.filter(s => relevantIds.includes(s.memberId));
-      members = members.filter(m => relevantIds.includes(m.id));
-      logs = logs.filter(l => relevantIds.includes(l.memberId));
+      if (assignedIds && assignedIds.length > 0) {
+        const relevantIds = Array.from(new Set([leadId, ...assignedIds]));
+        summaries = summaries.filter(s => relevantIds.includes(s.memberId));
+        members = members.filter(m => relevantIds.includes(m.id));
+        logs = logs.filter(l => relevantIds.includes(l.memberId));
+      }
     }
 
     // Build matrix data for Sheet 2
@@ -351,7 +359,26 @@ router.get('/export-excel', async (req, res) => {
 // GET export reports to CSV
 router.get('/export-csv', async (req, res) => {
   try {
-    const { type, date, startDate, endDate, leadId } = req.query;
+    const { type, date, startDate, endDate, leadId, shift } = req.query;
+    const targetDate = date || new Date().toISOString().split('T')[0];
+    const settings = await db.getSettings();
+    const activeShift = shift || settings.currentShift || 'morning';
+
+    let [summaries, members, logs] = await Promise.all([
+      db.getDailySummary({ date: targetDate, startDate, endDate, shift: activeShift }),
+      db.getActiveMembersForShift(targetDate, activeShift),
+      db.getHourlyLogs({ date: targetDate, startDate, endDate })
+    ]);
+
+    if (leadId) {
+      const assignedIds = await db.getTeamAssignments(leadId);
+      if (assignedIds && assignedIds.length > 0) {
+        const relevantIds = Array.from(new Set([leadId, ...assignedIds]));
+        summaries = summaries.filter(s => relevantIds.includes(s.memberId));
+        members = members.filter(m => relevantIds.includes(m.id));
+        logs = logs.filter(l => relevantIds.includes(l.memberId));
+      }
+    }
     const isDaily = type === 'daily';
 
     if (isDaily) {

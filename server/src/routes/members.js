@@ -104,6 +104,17 @@ router.post('/:id/assign-project', async (req, res) => {
   }
 });
 
+// POST set member shift for a date
+router.post('/:id/shift', async (req, res) => {
+  try {
+    const { date, shift } = req.body;
+    const result = await db.setMemberShift(req.params.id, date, shift);
+    res.json({ success: true, data: result, message: `Shift updated to ${shift}` });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // DELETE member
 router.delete('/:id', async (req, res) => {
   try {

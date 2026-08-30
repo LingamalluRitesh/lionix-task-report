@@ -119,10 +119,10 @@ const MainApp = () => {
     if (!isAdmin || !selectedDate) return;
     try {
       const [overviewData, matrixData, logsData, summaryData, settingsData] = await Promise.all([
-        api.getAdminOverview({ date: selectedDate }),
-        api.getMatrix(selectedDate),
+        api.getAdminOverview({ date: selectedDate, shift: currentShift }),
+        api.getMatrix(selectedDate, '', currentShift),
         api.getHourlyLogs({ date: selectedDate }),
-        api.getDailySummary({ date: selectedDate }),
+        api.getDailySummary({ date: selectedDate, shift: currentShift }),
         api.getSettings()
       ]);
       setAdminOverview(overviewData);
@@ -132,13 +132,10 @@ const MainApp = () => {
       if (settingsData?.dailyTaskGoal) {
         setDailyTaskGoal(settingsData.dailyTaskGoal);
       }
-      if (settingsData?.currentShift) {
-        setCurrentShift(settingsData.currentShift);
-      }
     } catch (err) {
       console.error('Error fetching admin data:', err);
     }
-  }, [isAdmin, selectedDate]);
+  }, [isAdmin, selectedDate, currentShift]);
 
   // Initial Load
   useEffect(() => {

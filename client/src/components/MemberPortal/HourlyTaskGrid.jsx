@@ -230,10 +230,17 @@ export const HourlyTaskGrid = ({
     }
   };
 
-  const handleShiftSwitch = (shift) => {
+  const handleShiftSwitch = async (shift) => {
     setActiveShift(shift);
     if (onShiftChange) {
       onShiftChange(shift);
+    }
+    if (memberId) {
+      try {
+        await api.setMemberShift(memberId, selectedDate, shift);
+      } catch (err) {
+        console.error('Failed to update member shift:', err);
+      }
     }
   };
 
