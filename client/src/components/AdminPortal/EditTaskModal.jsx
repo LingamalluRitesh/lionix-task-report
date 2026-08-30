@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Clock, CalendarOff } from 'lucide-react';
+import { X, Save, Clock, Briefcase } from 'lucide-react';
 
 export const EditTaskModal = ({
   isOpen,
@@ -19,8 +19,7 @@ export const EditTaskModal = ({
     hourSlot: log.hourSlot || '',
     taskCount: log.taskCount || 0,
     notes: log.notes || '',
-    status: log.status || 'Completed',
-    applyDayOnLeave: true
+    status: log.status || 'Completed'
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -35,8 +34,7 @@ export const EditTaskModal = ({
         hourSlot: log.hourSlot || '',
         taskCount: log.taskCount || 0,
         notes: log.notes || '',
-        status: log.status || 'Completed',
-        applyDayOnLeave: true
+        status: log.status || 'Completed'
       });
     }
   }, [log]);
@@ -79,7 +77,7 @@ export const EditTaskModal = ({
             </div>
             <div>
               <h3 className="text-base font-extrabold text-slate-900">Edit Task Entry</h3>
-              <p className="text-xs text-slate-500">Modify task count, project assignment, or leave status.</p>
+              <p className="text-xs text-slate-500">Modify task count, project assignment, notes, or status for this hour.</p>
             </div>
           </div>
           <button
@@ -198,23 +196,10 @@ export const EditTaskModal = ({
               <option value="Completed">✓ Completed / Done</option>
               <option value="In Progress">⏳ In Progress</option>
               <option value="Blocked">⚠️ Blocked</option>
-              <option value="Lunch Break">🍱 Lunch Break</option>
-              <option value="On Leave">🏖️ On Leave (Apply to All Day)</option>
+              <option value="Lunch Break">🍱 Lunch / Dinner Break</option>
+              <option value="On Leave">🏖️ On Leave (This Slot Only)</option>
             </select>
           </div>
-
-          {/* Leave Banner Notice */}
-          {isLeave && (
-            <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5">
-              <CalendarOff className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-              <div>
-                <strong className="block">All-Day Leave Reflection:</strong>
-                <p className="mt-0.5 text-rose-700 text-[11px]">
-                  Saving as "On Leave" will automatically mark all hours of <strong>{formData.date}</strong> as <strong>On Leave</strong> for this member across the entire schedule.
-                </p>
-              </div>
-            </div>
-          )}
 
           {/* Notes */}
           <div>
@@ -242,18 +227,14 @@ export const EditTaskModal = ({
             <button
               type="submit"
               disabled={isSaving}
-              className={`flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-white text-xs font-extrabold shadow-md transition-all cursor-pointer ${
-                isLeave
-                  ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/25'
-                  : 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/25'
-              }`}
+              className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold shadow-md shadow-amber-500/25 transition-all cursor-pointer"
             >
               {isSaving ? (
                 <span>Saving...</span>
               ) : (
                 <>
                   <Save className="w-3.5 h-3.5" />
-                  <span>{isLeave ? 'Mark Day On Leave' : 'Save Changes'}</span>
+                  <span>Save Changes</span>
                 </>
               )}
             </button>

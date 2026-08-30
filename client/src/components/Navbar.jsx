@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, User, LogOut, Sparkles, Crown, Users, Clock, KeyRound } from 'lucide-react';
+import { Shield, User, LogOut, Sparkles, Crown, Users, Clock, KeyRound, Undo2, Redo2 } from 'lucide-react';
 import { ChangePasswordModal } from './UI/ChangePasswordModal.jsx';
 
 export const Navbar = ({
@@ -10,7 +10,15 @@ export const Navbar = ({
   onAdminTabChange,
   leadTab,
   onLeadTabChange,
-  onLogout
+  onLogout,
+  canUndo = false,
+  canRedo = false,
+  undoCount = 0,
+  redoCount = 0,
+  undoActionName = '',
+  redoActionName = '',
+  onUndo,
+  onRedo
 }) => {
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const isLead = Boolean(employeeUser?.isLead);
@@ -132,6 +140,49 @@ export const Navbar = ({
 
             {/* Right Section / User & Signout */}
             <div className="flex items-center gap-2 sm:gap-3">
+              {/* Undo / Redo Change History Controls (Backward & Forward) */}
+              <div className="flex items-center p-0.5 bg-slate-100 rounded-2xl border border-slate-200 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={onUndo}
+                  disabled={!canUndo}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    canUndo
+                      ? 'bg-white text-slate-800 hover:text-amber-700 hover:shadow-xs cursor-pointer'
+                      : 'text-slate-300 cursor-not-allowed'
+                  }`}
+                  title={canUndo ? `Undo (Backward): ${undoActionName || 'Last change'} (Ctrl+Z)` : 'Undo: No previous actions (Ctrl+Z)'}
+                >
+                  <Undo2 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Undo</span>
+                  {undoCount > 0 && (
+                    <span className="text-[10px] font-mono font-extrabold px-1 rounded-full bg-slate-100 text-slate-600">
+                      {undoCount}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onRedo}
+                  disabled={!canRedo}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    canRedo
+                      ? 'bg-white text-slate-800 hover:text-amber-700 hover:shadow-xs cursor-pointer'
+                      : 'text-slate-300 cursor-not-allowed'
+                  }`}
+                  title={canRedo ? `Redo (Forward): ${redoActionName || 'Next change'} (Ctrl+Y)` : 'Redo: No forward actions (Ctrl+Y)'}
+                >
+                  <span className="hidden sm:inline">Redo</span>
+                  <Redo2 className="w-3.5 h-3.5" />
+                  {redoCount > 0 && (
+                    <span className="text-[10px] font-mono font-extrabold px-1 rounded-full bg-slate-100 text-slate-600">
+                      {redoCount}
+                    </span>
+                  )}
+                </button>
+              </div>
+
               {/* Employee or Lead logged in */}
               {!isAdminMode && employeeUser && (
                 <div className="flex items-center gap-2 sm:gap-3">

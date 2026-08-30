@@ -79,6 +79,69 @@ const MainApp = () => {
   const [editingLog, setEditingLog] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
+  // Undo / Redo (Forward & Backward History Stack)
+  const [undoStack, setUndoStack] = useState([]);
+  const [redoStack, setRedoStack] = useState([]);
+
+  const recordHistory = useCallback((action) => {
+    // action: { name: string, undo: async () => void, redo: async () => void }
+    setUndoStack(prev => [...prev.slice(-40), action]);
+    setRedoStack([]); // Clear redo stack on fresh action
+  }, []);
+
+  const handleUndo = async () => {
+    if (undoStack.length === 0) return;
+    const lastAction = undoStack[undoStack.length - 1];
+    setUndoStack(prev => prev.slice(0, prev.length - 1));
+    try {
+      await lastAction.undo();
+      setRedoStack(prev => [...prev, lastAction]);
+      addToast(`Undone: ${lastAction.name}`, 'info');
+      await Promise.all([fetchEmployeeLogs(), fetchAdminData()]);
+    } catch (err) {
+      console.error('Undo failed:', err);
+      addToast('Failed to undo action', 'error');
+    }
+  };
+
+  const handleRedo = async () => {
+    if (redoStack.length === 0) return;
+    const nextAction = redoStack[redoStack.length - 1];
+    setRedoStack(prev => prev.slice(0, prev.length - 1));
+    try {
+      await nextAction.redo();
+      setUndoStack(prev => [...prev, nextAction]);
+      addToast(`Redone: ${nextAction.name}`, 'info');
+      await Promise.all([fetchEmployeeLogs(), fetchAdminData()]);
+    } catch (err) {
+      console.error('Redo failed:', err);
+      addToast('Failed to redo action', 'error');
+    }
+  };
+
+  // Keyboard Shortcuts (Ctrl+Z and Ctrl+Y)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const tag = e.target.tagName.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) {
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      } else if (
+        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z')
+      ) {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undoStack, redoStack]);
+
   // Fetch Master Data & Global Goal & Shift
   const fetchMasterData = async () => {
     try {
@@ -212,8 +275,25 @@ const MainApp = () => {
   // Task Logging Handlers (Employee)
   const handleSaveHourlyLog = async (logData) => {
     try {
-      await api.saveHourlyLog(logData);
+      const prevLog = employeeLogs.find(l => l.hourSlot === logData.hourSlot && l.date === logData.date);
+      const res = await api.saveHourlyLog(logData);
+      const savedId = res?.data?.id;
       addToast(`Hourly task saved for ${logData.hourSlot}`, 'success');
+
+      recordHistory({
+        name: `Save log (${logData.hourSlot})`,
+        undo: async () => {
+          if (prevLog && prevLog.id) {
+            await api.updateHourlyLog(prevLog.id, prevLog);
+          } else if (savedId) {
+            await api.deleteHourlyLog(savedId);
+          }
+        },
+        redo: async () => {
+          await api.saveHourlyLog(logData);
+        }
+      });
+
       await Promise.all([fetchEmployeeLogs(), fetchAdminData()]);
     } catch (err) {
       addToast('Failed to save hourly task log', 'error');
@@ -222,15 +302,38 @@ const MainApp = () => {
 
   const handleUpdateHourlyLog = async (id, updates) => {
     try {
-      if (updates.status === 'On Leave' || updates.notes?.toLowerCase() === 'on leave' || updates.applyDayOnLeave) {
-        await api.markMemberDayOnLeave(updates.memberId, updates.date || selectedDate, currentShift);
-        addToast('Marked entire day as On Leave for member', 'success');
-      } else if (id) {
+      const prevLog = adminHourlyLogs.find(l => l.id === id) || 
+                      employeeLogs.find(l => l.id === id);
+
+      if (id) {
         await api.updateHourlyLog(id, updates);
         addToast('Task record updated', 'success');
+
+        if (prevLog) {
+          recordHistory({
+            name: `Edit log (${updates.hourSlot || prevLog.hourSlot})`,
+            undo: async () => {
+              await api.updateHourlyLog(id, prevLog);
+            },
+            redo: async () => {
+              await api.updateHourlyLog(id, updates);
+            }
+          });
+        }
       } else {
-        await api.saveHourlyLog(updates);
+        const res = await api.saveHourlyLog(updates);
+        const savedId = res?.data?.id;
         addToast('Task record created', 'success');
+
+        recordHistory({
+          name: `Create log (${updates.hourSlot})`,
+          undo: async () => {
+            if (savedId) await api.deleteHourlyLog(savedId);
+          },
+          redo: async () => {
+            await api.saveHourlyLog(updates);
+          }
+        });
       }
       await Promise.all([fetchEmployeeLogs(), fetchAdminData()]);
     } catch (err) {
@@ -240,8 +343,22 @@ const MainApp = () => {
 
   const handleDeleteHourlyLog = async (id) => {
     try {
+      const prevLog = employeeLogs.find(l => l.id === id) || adminHourlyLogs.find(l => l.id === id);
       await api.deleteHourlyLog(id);
       addToast('Hourly task log removed', 'info');
+
+      if (prevLog) {
+        recordHistory({
+          name: `Delete log (${prevLog.hourSlot})`,
+          undo: async () => {
+            await api.saveHourlyLog(prevLog);
+          },
+          redo: async () => {
+            await api.deleteHourlyLog(id);
+          }
+        });
+      }
+
       await Promise.all([fetchEmployeeLogs(), fetchAdminData()]);
     } catch (err) {
       addToast('Failed to delete log', 'error');
@@ -390,6 +507,14 @@ const MainApp = () => {
         leadTab={leadTab}
         onLeadTabChange={setLeadTab}
         onLogout={handleLogout}
+        canUndo={undoStack.length > 0}
+        canRedo={redoStack.length > 0}
+        undoCount={undoStack.length}
+        redoCount={redoStack.length}
+        undoActionName={undoStack.length > 0 ? undoStack[undoStack.length - 1].name : ''}
+        redoActionName={redoStack.length > 0 ? redoStack[redoStack.length - 1].name : ''}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
       />
 
       {/* Main Container */}
